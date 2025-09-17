@@ -365,6 +365,8 @@ y = -x + 5 (기울기 -1, y절편 5)"""
 
     def test_error_handling(self) -> Dict[str, Any]:
         """에러 처리 테스트"""
+        from unittest.mock import patch
+
         result = {}
 
         # 1. 잘못된 파일 경로

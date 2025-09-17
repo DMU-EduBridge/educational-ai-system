@@ -147,21 +147,26 @@ class TestIntegration:
         mock_llm_openai.return_value = mock_llm_client
 
         mock_llm_response = MagicMock()
-        mock_llm_response.choices = [MagicMock()]
-        mock_llm_response.choices[0].message.content = """
-        {
-            "question": "일차함수 y = 2x + 3에서 기울기는?",
-            "options": ["1", "2", "3", "4", "5"],
-            "correct_answer": 2,
-            "explanation": "기울기는 2입니다.",
-            "difficulty": "medium",
-            "subject": "수학",
-            "unit": "일차함수"
-        }
-        """
-        mock_llm_response.usage.prompt_tokens = 100
-        mock_llm_response.usage.completion_tokens = 50
-        mock_llm_response.usage.total_tokens = 150
+        mock_choice = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = """{
+    "question": "일차함수 y = 2x + 3에서 기울기는?",
+    "options": ["1", "2", "3", "4", "5"],
+    "correct_answer": 2,
+    "explanation": "기울기는 2입니다.",
+    "difficulty": "medium",
+    "subject": "수학",
+    "unit": "일차함수"
+}"""
+        mock_choice.message = mock_message
+        mock_llm_response.choices = [mock_choice]
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 100
+        mock_usage.completion_tokens = 50
+        mock_usage.total_tokens = 150
+        mock_llm_response.usage = mock_usage
+
         mock_llm_client.chat.completions.create.return_value = mock_llm_response
 
         # 테스트 파일 생성
