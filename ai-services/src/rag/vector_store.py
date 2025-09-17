@@ -64,6 +64,10 @@ class VectorStore:
         if len(documents) != len(embeddings):
             raise ValueError("Documents and embeddings must have the same length")
 
+        # 빈 리스트인 경우 성공으로 처리
+        if len(documents) == 0:
+            return True
+
         try:
             ids = []
             contents = []
@@ -143,17 +147,23 @@ class VectorStore:
         """
         try:
             # 필터 조건 준비
-            where_clause = {}
+            where_clause = None
             if filter_metadata:
+                conditions = []
                 for key, value in filter_metadata.items():
                     if value is not None:
-                        where_clause[key] = value
+                        conditions.append({key: value})
+
+                if len(conditions) == 1:
+                    where_clause = conditions[0]
+                elif len(conditions) > 1:
+                    where_clause = {"$and": conditions}
 
             # ChromaDB 검색
             results = self.collection.query(
                 query_embeddings=[query_embedding],
                 n_results=k,
-                where=where_clause if where_clause else None,
+                where=where_clause,
                 include=["documents", "metadatas", "distances"]
             )
 

@@ -81,26 +81,36 @@ class DocumentProcessor:
 
         chunks = []
         current_chunk = ""
-        current_size = 0
 
         for sentence in sentences:
-            sentence_size = len(sentence)
+            # 문장이 청크 크기보다 크면 강제로 분할
+            if len(sentence) > chunk_size:
+                # 현재 청크가 있으면 먼저 저장
+                if current_chunk.strip():
+                    chunks.append(current_chunk.strip())
+                    current_chunk = ""
+
+                # 긴 문장을 청크 크기로 분할
+                for i in range(0, len(sentence), chunk_size):
+                    chunk_part = sentence[i:i + chunk_size]
+                    chunks.append(chunk_part)
+                continue
+
+            # 현재 청크에 문장을 추가했을 때 크기 계산
+            test_chunk = current_chunk + " " + sentence if current_chunk else sentence
 
             # 청크 크기 초과 시 새로운 청크 시작
-            if current_size + sentence_size > chunk_size and current_chunk:
+            if len(test_chunk) > chunk_size and current_chunk:
                 chunks.append(current_chunk.strip())
 
                 # 오버랩 적용
-                if overlap > 0:
-                    overlap_text = current_chunk[-overlap:] if len(current_chunk) > overlap else current_chunk
+                if overlap > 0 and len(current_chunk) > overlap:
+                    overlap_text = current_chunk[-overlap:]
                     current_chunk = overlap_text + " " + sentence
-                    current_size = len(current_chunk)
                 else:
                     current_chunk = sentence
-                    current_size = sentence_size
             else:
-                current_chunk += " " + sentence if current_chunk else sentence
-                current_size += sentence_size
+                current_chunk = test_chunk
 
         # 마지막 청크 추가
         if current_chunk.strip():
