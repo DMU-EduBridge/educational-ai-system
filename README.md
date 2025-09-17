@@ -144,15 +144,11 @@ pytest --cov=src tests/
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 👥 개발팀
+## 👥 개발자
 
-- **DMU-EduBridge** - 동명대학교 교육 브릿지팀
-- **연락처**: contact@example.com
+- **DMU-EduBridge** - 김현종
+- **연락처**: general.knell@gmail.com.com
 
 ---
-
-<div align="center">
-
-**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요! ⭐**
 
 </div>
