@@ -1,9 +1,20 @@
 [project]
 name = "educational-ai-system"
 version = "0.1.0"
-description = "Add your description here"
+description = "중학교 교과서 기반 AI 문제 생성 시스템 - RAG를 활용한 5지선다 문제 자동 생성"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    {name = "DMU-EduBridge", email = "contact@example.com"}
+]
+keywords = ["ai", "education", "rag", "nlp", "question-generation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.11",
+]
 dependencies = [
     "black>=23.0.0",
     "chromadb>=0.4.18",
@@ -28,3 +39,46 @@ dependencies = [
     "tiktoken>=0.5.0",
     "typing-extensions>=4.0.0",
 ]
+
+[project.scripts]
+educational-ai = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/DMU-EduBridge/educational-ai-system"
+Repository = "https://github.com/DMU-EduBridge/educational-ai-system.git"
+Issues = "https://github.com/DMU-EduBridge/educational-ai-system/issues"
+Documentation = "https://github.com/DMU-EduBridge/educational-ai-system/blob/main/README.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["ai-services/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
