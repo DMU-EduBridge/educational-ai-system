@@ -1,0 +1,91 @@
+{
+  "환경 설정": {
+    "status": "success",
+    "result": {
+      "python_version": "3.9.6",
+      "missing_packages": [],
+      "file_access": true
+    },
+    "duration": 0.00012493133544921875
+  },
+  "파이프라인 초기화": {
+    "status": "success",
+    "result": {
+      "components_initialized": true,
+      "vector_store_ready": true,
+      "llm_client_ready": true,
+      "question_generator_ready": true
+    },
+    "duration": 0.1657547950744629
+  },
+  "문서 처리": {
+    "status": "success",
+    "result": {
+      "total_documents": 1,
+      "has_metadata": true,
+      "content_preserved": true,
+      "chunking_worked": true
+    },
+    "duration": 0.0008640289306640625
+  },
+  "벡터 저장": {
+    "status": "success",
+    "result": {
+      "storage_success": true,
+      "stored_documents": 1,
+      "subjects_stored": 1,
+      "units_stored": 1
+    },
+    "duration": 0.010909080505371094
+  },
+  "컨텍스트 검색": {
+    "status": "success",
+    "result": {
+      "contexts_found": 1,
+      "relevant_content": true,
+      "search_worked": true
+    },
+    "duration": 0.0018229484558105469
+  },
+  "문제 생성": {
+    "status": "success",
+    "result": {
+      "question_generated": true,
+      "has_correct_format": true,
+      "has_5_options": true,
+      "has_explanation": true,
+      "correct_answer_valid": true
+    },
+    "duration": 0.0005092620849609375
+  },
+  "배치 처리": {
+    "status": "success",
+    "result": {
+      "batch_count": 3,
+      "all_valid": true,
+      "unique_questions": false
+    },
+    "duration": 0.0011758804321289062
+  },
+  "성능 측정": {
+    "status": "success",
+    "result": {
+      "storage_time": 0.005460023880004883,
+      "search_time": 0.0008199214935302734,
+      "documents_stored": 20,
+      "storage_success": true,
+      "search_results": 5,
+      "performance_acceptable": true
+    },
+    "duration": 0.006555080413818359
+  },
+  "에러 처리": {
+    "status": "success",
+    "result": {
+      "file_error_handling": true,
+      "empty_context_handling": true,
+      "question_validation": true
+    },
+    "duration": 0.00014901161193847656
+  }
+}
