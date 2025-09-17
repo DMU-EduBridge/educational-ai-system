@@ -10,3 +10,9 @@ wheels/
 .venv
 
 .env
+
+# Vector database and cache files
+**/vector_db/
+**/cache/
+test_data/
+logs/

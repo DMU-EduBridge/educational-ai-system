@@ -146,10 +146,8 @@ class TestIntegration:
         mock_llm_client = MagicMock()
         mock_llm_openai.return_value = mock_llm_client
 
-        mock_llm_response = MagicMock()
-        mock_choice = MagicMock()
-        mock_message = MagicMock()
-        mock_message.content = """{
+        # JSON 응답을 실제 문자열로 정의
+        json_response = """{
     "question": "일차함수 y = 2x + 3에서 기울기는?",
     "options": ["1", "2", "3", "4", "5"],
     "correct_answer": 2,
@@ -158,6 +156,12 @@ class TestIntegration:
     "subject": "수학",
     "unit": "일차함수"
 }"""
+
+        mock_llm_response = MagicMock()
+        mock_choice = MagicMock()
+        mock_message = MagicMock()
+        # content 속성을 실제 문자열로 설정
+        mock_message.content = json_response
         mock_choice.message = mock_message
         mock_llm_response.choices = [mock_choice]
 
@@ -177,19 +181,21 @@ class TestIntegration:
         # RAGPipeline 테스트
         try:
             pipeline = RAGPipeline(self.settings)
+            
+            # LLMClient의 generate_response 메서드를 Mock
+            with patch.object(pipeline.question_generator.llm_client, 'generate_response', return_value=json_response):
+                # 1. 교과서 처리
+                process_result = pipeline.process_textbook(
+                    str(test_file), "수학", "일차함수"
+                )
 
-            # 1. 교과서 처리
-            process_result = pipeline.process_textbook(
-                str(test_file), "수학", "일차함수"
-            )
+                assert process_result['status'] == 'success'
+                assert process_result['processed_chunks'] > 0
 
-            assert process_result['status'] == 'success'
-            assert process_result['processed_chunks'] > 0
-
-            # 2. 문제 생성
-            questions = pipeline.generate_questions(
-                "수학", "일차함수", "medium", 1
-            )
+                # 2. 문제 생성
+                questions = pipeline.generate_questions(
+                    "수학", "일차함수", "medium", 1
+                )
 
             assert len(questions) == 1
             assert questions[0]['subject'] == "수학"
