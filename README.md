@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--3.5-green.svg)](https://openai.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-orange.svg)](https://chromadb.com)
-[![Tests](https://img.shields.io/badge/Tests-58%20passed-brightgreen.svg)](https://pytest.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📋 프로젝트 개요
 
@@ -19,7 +19,7 @@
 - 💾 **벡터 검색**: ChromaDB를 활용한 빠른 유사도 검색
 - 🧠 **문제 생성**: GPT-3.5-turbo를 사용한 교육적 5지선다 문제 생성
 - 🖥️ **CLI 도구**: 직관적인 명령줄 인터페이스
-- 🧪 **완전한 테스트**: 58개 테스트 케이스로 검증된 안정성
+- 🧪 **완전한 테스트**: 포괄적인 테스트 커버리지
 
 ### 🎯 사용 사례
 
@@ -28,26 +28,68 @@
 - **교육기관**: 자동화된 평가 도구 개발
 - **에듀테크**: AI 기반 학습 콘텐츠 제작
 
+## 🏗️ 시스템 아키텍처
+
+```
+educational-ai-system/
+├── main.py                     # 통합 실행 파일
+├── pyproject.toml              # 프로젝트 설정
+├── .env.example                # 환경 설정 예시
+├── ai-services/                # 핵심 AI 서비스
+│   ├── src/
+│   │   ├── rag/                # RAG 파이프라인 핵심 모듈
+│   │   │   ├── document_processor.py  # 문서 처리 및 청킹
+│   │   │   ├── embeddings.py          # OpenAI 임베딩 관리
+│   │   │   ├── vector_store.py        # ChromaDB 벡터 저장소
+│   │   │   └── retriever.py           # 컨텍스트 검색 및 랭킹
+│   │   ├── models/             # AI 모델 관리
+│   │   │   ├── llm_client.py          # OpenAI LLM 클라이언트
+│   │   │   └── question_generator.py  # 문제 생성기
+│   │   ├── utils/              # 유틸리티 모듈
+│   │   │   ├── config.py              # 설정 관리
+│   │   │   ├── logger.py              # 로깅 시스템
+│   │   │   └── prompts.py             # 프롬프트 템플릿
+│   │   └── main.py             # CLI 메인 애플리케이션
+│   ├── tests/                  # 테스트 코드
+│   ├── data/                   # 데이터 저장소
+│   │   ├── sample_textbooks/   # 샘플 교과서 파일
+│   │   ├── vector_db/          # ChromaDB 데이터
+│   │   └── cache/              # 캐시 데이터
+│   └── scripts/                # 유틸리티 스크립트
+└── rag-question-generator/     # 레거시 코드 (제거 예정)
+```
+
 ## 🚀 빠른 시작
 
-### 1. 환경 설정
+### 1. 설치
 
 ```bash
 # 저장소 클론
 git clone https://github.com/DMU-EduBridge/educational-ai-system.git
 cd educational-ai-system
 
-# 가상환경 설정 및 의존성 설치
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e .
+# 의존성 설치 (uv 권장)
+uv sync
 
-# AI Services 환경 설정
-cd ai-services
-python scripts/setup_environment.py
+# 또는 pip 사용
+pip install -e .
 ```
 
-### 2. OpenAI API 키 설정
+### 2. 환경 설정
+
+```bash
+# 환경 설정 파일 복사
+cp .env.example .env
+
+# .env 파일에서 OpenAI API 키 설정
+# OPENAI_API_KEY=sk-your-actual-api-key-here
+
+# 시스템 정보 확인
+python main.py info
+
+# 환경 설정 초기화
+python main.py setup-env
+```
 
 ```bash
 # ai-services/.env 파일 생성
