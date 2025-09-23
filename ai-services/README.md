@@ -6,8 +6,9 @@
 ## 🔧 주요 기능
 
 - **RAG 파이프라인**: 문서 처리, 임베딩, 벡터 검색
-- **문제 생성**: AI 기반 5지선다 문제 자동 생성
+- **문제 생성**: AI 기반 5지선다 문제 자동 생성 (힌트 기능 포함)
 - **벡터 데이터베이스**: ChromaDB 기반 지식 저장소
+- **데모 도구**: 문제 생성 결과 확인 및 검증
 
 ## 📂 모듈 구조
 
@@ -21,13 +22,16 @@ ai-services/
 │   │   └── retriever.py           # 컨텍스트 검색 및 랭킹
 │   ├── models/                 # AI 모델 관리
 │   │   ├── llm_client.py          # OpenAI LLM 클라이언트
-│   │   └── question_generator.py  # 문제 생성기
+│   │   └── question_generator.py  # 문제 생성기 (힌트 기능 포함)
 │   ├── utils/                  # 유틸리티 모듈
 │   │   ├── config.py              # 설정 관리
 │   │   ├── logger.py              # 로깅 시스템
 │   │   └── prompts.py             # 프롬프트 템플릿
 │   └── main.py                 # CLI 메인 애플리케이션
-├── tests/                      # 테스트 코드
+├── tests/                      # 테스트 코드 (23개 케이스)
+├── demo_question_output.py     # 문제 생성 결과 확인 데모
+├── demo_batch_questions.py     # 배치 문제 생성 데모
+├── question_output_sample.json # 샘플 출력 데이터
 ├── data/                       # 데이터 저장소
 │   ├── sample_textbooks/       # 샘플 교과서 파일
 │   └── vector_db/              # ChromaDB 데이터

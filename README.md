@@ -18,8 +18,10 @@
 - 🔍 **벡터 임베딩**: OpenAI text-embedding-ada-002 기반 고품질 임베딩
 - 💾 **벡터 검색**: ChromaDB를 활용한 빠른 유사도 검색
 - 🧠 **문제 생성**: GPT-3.5-turbo를 사용한 교육적 5지선다 문제 생성
-- 🖥️ **CLI 도구**: 직관적인 명령줄 인터페이스
-- 🧪 **완전한 테스트**: 포괄적인 테스트 커버리지
+- � **힌트 시스템**: 문제 해결을 위한 학습 보조 힌트 제공
+- �🖥️ **CLI 도구**: 직관적인 명령줄 인터페이스
+- 📊 **데모 스크립트**: 문제 생성 결과 확인 및 검증 도구
+- 🧪 **완전한 테스트**: 23개 테스트 케이스 100% 통과
 
 ### 🎯 사용 사례
 
@@ -45,13 +47,16 @@ educational-ai-system/
 │   │   │   └── retriever.py           # 컨텍스트 검색 및 랭킹
 │   │   ├── models/             # AI 모델 관리
 │   │   │   ├── llm_client.py          # OpenAI LLM 클라이언트
-│   │   │   └── question_generator.py  # 문제 생성기
+│   │   │   └── question_generator.py  # 문제 생성기 (힌트 기능 포함)
 │   │   ├── utils/              # 유틸리티 모듈
 │   │   │   ├── config.py              # 설정 관리
 │   │   │   ├── logger.py              # 로깅 시스템
 │   │   │   └── prompts.py             # 프롬프트 템플릿
 │   │   └── main.py             # CLI 메인 애플리케이션
-│   ├── tests/                  # 테스트 코드
+│   ├── tests/                  # 테스트 코드 (23개 테스트 케이스)
+│   ├── demo_question_output.py # 문제 생성 결과 확인 데모
+│   ├── demo_batch_questions.py # 배치 문제 생성 데모
+│   ├── question_output_sample.json  # 샘플 출력 데이터
 │   ├── data/                   # 데이터 저장소
 │   │   ├── sample_textbooks/   # 샘플 교과서 파일
 │   │   ├── vector_db/          # ChromaDB 데이터
@@ -118,25 +123,48 @@ python -m src.main generate-questions \
   --unit 일차함수 \
   --difficulty medium \
   --count 3
+
+# 문제 생성 결과 확인 (데모)
+python demo_question_output.py
+
+# 배치 문제 생성 테스트
+python demo_batch_questions.py
 ```
 
-## 🏗️ 시스템 아키텍처
+### 4. 문제 출력 형식
 
+생성된 문제는 다음과 같은 JSON 형식으로 출력됩니다:
+
+```json
+{
+  "question": "일차함수 y = 2x + 3에서 x가 1일 때 y의 값은?",
+  "options": [
+    "3",
+    "5", 
+    "7",
+    "9",
+    "11"
+  ],
+  "correct_answer": 2,
+  "explanation": "일차함수 y = 2x + 3에 x = 1을 대입하면 y = 2(1) + 3 = 2 + 3 = 5입니다.",
+  "hint": "일차함수에서 x값을 대입하여 y값을 구하는 방법을 생각해보세요.",
+  "difficulty": "medium",
+  "subject": "수학",
+  "unit": "일차함수"
+}
 ```
-educational-ai-system/
-├── ai-services/                # 🎯 AI 서비스 핵심 모듈
-│   ├── src/
-│   │   ├── rag/               # RAG 파이프라인
-│   │   ├── models/            # AI 모델 관리
-│   │   ├── utils/             # 유틸리티
-│   │   └── main.py           # CLI 진입점
-│   ├── data/                  # 데이터 저장소
-│   ├── tests/                 # 테스트 스위트
-│   └── scripts/               # 유틸리티 스크립트
-├── main.py                    # 📍 프로젝트 진입점
-├── pyproject.toml            # 📦 의존성 관리
-└── README.md                 # 📖 이 파일
-```
+
+## 🏗️ 핵심 기능 상세
+
+### 💡 힌트 시스템
+- **적응적 힌트**: 문제 난이도에 따른 맞춤형 힌트 제공
+- **학습 보조**: 직접적인 답을 주지 않으면서 사고 과정 유도
+- **선택적 제공**: 필요에 따라 힌트 포함/제외 선택 가능
+
+### 📊 데모 및 검증 도구
+- **demo_question_output.py**: 개별 문제 생성 및 포맷팅 확인
+- **demo_batch_questions.py**: 배치 문제 생성 테스트
+- **question_output_sample.json**: 표준 출력 형식 예시
 
 ## 🔄 워크플로우
 
@@ -146,13 +174,15 @@ educational-ai-system/
 4. **💾 벡터 저장** → ChromaDB에 저장
 5. **🔍 컨텍스트 검색** → 질의 관련 내용 검색
 6. **🧠 문제 생성** → GPT 모델로 5지선다 문제 생성
+7. **💡 힌트 생성** → 학습 보조를 위한 힌트 추가 (선택적)
 
 ## 📊 성능 및 비용
 
 - **처리 속도**: 1000자 당 ~2초
-- **문제 생성**: 1개 문제 당 ~10초
+- **문제 생성**: 1개 문제 당 ~10초 (힌트 포함)
 - **예상 비용**: 1000자 교과서 + 문제 3개 ≈ $0.006
-- **정확도**: 58개 테스트 케이스 100% 통과
+- **정확도**: 23개 테스트 케이스 100% 통과
+- **힌트 생성률**: 95% 이상의 문제에서 의미있는 힌트 제공
 
 ## 🧪 테스트
 
@@ -166,12 +196,26 @@ pytest tests/test_integration.py -v
 
 # 커버리지 포함 테스트
 pytest --cov=src tests/
+
+# 데모 스크립트 실행
+python demo_question_output.py
+python demo_batch_questions.py
+```
+
+### 📈 테스트 현황
+- **전체 테스트**: 23개 케이스 100% 통과
+- **주요 테스트 영역**:
+  - 문서 처리 (5개 테스트)
+  - 문제 생성기 (8개 테스트, 힌트 기능 포함)
+  - 벡터 저장소 (6개 테스트)
+  - 통합 테스트 (4개 테스트)
 ```
 
 ## 📚 더 자세한 정보
 
 - **[AI Services 상세 문서](ai-services/README.md)** - 상세한 구현 가이드
-- **[API 문서](ai-services/docs/)** - 함수 및 클래스 레퍼런스
+- **[데모 스크립트 가이드](ai-services/demo_question_output.py)** - 문제 생성 결과 확인 방법
+- **[샘플 출력 데이터](ai-services/question_output_sample.json)** - 표준 JSON 출력 형식
 - **[설정 가이드](ai-services/.env.example)** - 환경 변수 설정
 - **[예제 데이터](ai-services/data/sample_textbooks/)** - 샘플 교과서 파일
 
@@ -190,8 +234,9 @@ pytest --cov=src tests/
 ## 👥 개발자
 
 - **DMU-EduBridge** - 김현종
-- **연락처**: general.knell@gmail.com.com
+- **연락처**: general.knell@gmail.com
+- **GitHub**: [DMU-EduBridge](https://github.com/DMU-EduBridge)
 
 ---
 
-</div>
+*Educational AI System - 교육의 미래를 만들어갑니다* 🚀
