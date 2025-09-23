@@ -158,6 +158,7 @@ class QuestionGenerator:
         """
         try:
             required_fields = ['question', 'options', 'correct_answer', 'explanation', 'difficulty', 'subject', 'unit']
+            optional_fields = ['hint']  # hint는 선택사항
 
             # 필수 필드 확인
             for field in required_fields:
@@ -283,7 +284,8 @@ class QuestionGenerator:
 2. 중학교 1학년 수준에 맞는 명확한 문제
 3. 5개의 선택지 (정답 1개, 매력적인 오답 4개)
 4. 상세하고 교육적인 해설
-5. 한국어로 작성
+5. 문제 해결에 도움이 되는 힌트 (선택사항)
+6. 한국어로 작성
 
 난이도 기준 ({difficulty}):
 {difficulty_guide}
@@ -293,12 +295,19 @@ class QuestionGenerator:
 - 오답: 일부분만 맞거나, 일반적인 오개념, 유사하지만 틀린 내용
 - 모든 선택지는 문법적으로 자연스럽고 길이가 비슷해야 함
 
+힌트 작성 가이드:
+- 직접적인 정답을 제시하지 않으면서 문제 해결 방향 제시
+- 관련 개념이나 공식에 대한 간접적인 언급
+- 문제를 푸는 데 도움이 되는 사고 과정 유도
+- 너무 명확하지 않게, 학습자의 사고를 자극하는 수준
+
 출력 형식 (JSON만 출력):
 {{
     "question": "문제 텍스트",
     "options": ["1번 선택지", "2번 선택지", "3번 선택지", "4번 선택지", "5번 선택지"],
     "correct_answer": 정답_번호(1-5),
     "explanation": "정답 해설 및 풀이 과정",
+    "hint": "문제 해결을 위한 힌트 (선택사항)",
     "difficulty": "{difficulty}",
     "subject": "{subject}",
     "unit": "{unit}"
@@ -329,6 +338,7 @@ class QuestionGenerator:
             'options': response.get('options', []),
             'correct_answer': response.get('correct_answer', 1),
             'explanation': response.get('explanation', '').strip(),
+            'hint': response.get('hint', '').strip(),  # hint 필드 추가 (선택사항)
             'difficulty': difficulty,
             'subject': subject,
             'unit': unit,
