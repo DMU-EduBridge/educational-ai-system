@@ -19,7 +19,7 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 # 로컬 모듈 임포트
-try:
+# try:
     from src.utils.config import get_settings, Settings
     from src.utils.logger import setup_application_logger, get_logger
     from src.rag.document_processor import DocumentProcessor
@@ -28,16 +28,16 @@ try:
     from src.rag.retriever import RAGRetriever
     from src.models.llm_client import LLMClient
     from src.models.question_generator import QuestionGenerator
-except ImportError:
-    # 패키지가 설치된 경우의 import
-    from utils.config import get_settings, Settings
-    from utils.logger import setup_application_logger, get_logger
-    from rag.document_processor import DocumentProcessor
-    from rag.embeddings import EmbeddingsManager
-    from rag.vector_store import VectorStore
-    from rag.retriever import RAGRetriever
-    from models.llm_client import LLMClient
-    from models.question_generator import QuestionGenerator
+# except ImportError:
+#     # 패키지가 설치된 경우의 import
+#     from utils.config import get_settings, Settings
+#     from utils.logger import setup_application_logger, get_logger
+#     from rag.document_processor import DocumentProcessor
+#     from rag.embeddings import EmbeddingsManager
+#     from rag.vector_store import VectorStore
+#     from rag.retriever import RAGRetriever
+#     from models.llm_client import LLMClient
+#     from models.question_generator import QuestionGenerator
 
 
 class RAGPipeline:
