@@ -58,4 +58,4 @@ site/
 
 # uv
 .uv/
-uv.lock
+# uv.lock은 의존성 관리를 위해 버전 관리에 포함
