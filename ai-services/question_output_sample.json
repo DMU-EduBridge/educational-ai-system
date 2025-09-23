@@ -1,0 +1,78 @@
+{
+  "generated_at": "2025-09-23T19:43:15.164220",
+  "total_questions": 4,
+  "questions": [
+    {
+      "question": "일차함수 y = 2x + 3에서 기울기는 무엇인가?",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "-2",
+        "0"
+      ],
+      "correct_answer": 2,
+      "explanation": "일차함수 y = ax + b에서 a가 기울기이므로, y = 2x + 3에서 기울기는 2입니다.",
+      "hint": "일차함수의 일반형 y = ax + b를 생각해보세요.",
+      "difficulty": "easy",
+      "subject": "수학",
+      "unit": "일차함수",
+      "generated_at": "2025-09-23T19:43:15.164041",
+      "id": "수학_일차함수_easy_1"
+    },
+    {
+      "question": "물이 얼음으로 변하는 과정을 무엇이라고 하는가?",
+      "options": [
+        "응고",
+        "융해",
+        "증발",
+        "승화",
+        "응축"
+      ],
+      "correct_answer": 1,
+      "explanation": "물이 얼음으로 변하는 과정은 액체에서 고체로 변하는 것으로 응고라고 합니다.",
+      "hint": "",
+      "difficulty": "medium",
+      "subject": "과학",
+      "unit": "물질의 상태",
+      "generated_at": "2025-09-23T19:43:15.164101",
+      "id": "과학_물질의 상태_medium_2"
+    },
+    {
+      "question": "다음 중 체언이 아닌 것은?",
+      "options": [
+        "학교",
+        "그것",
+        "셋",
+        "예쁘다",
+        "하나"
+      ],
+      "correct_answer": 4,
+      "explanation": "'예쁘다'는 형용사로 용언에 해당합니다. 나머지는 모두 체언(명사, 대명사, 수사)입니다.",
+      "hint": "체언은 문장에서 주어나 목적어 역할을 할 수 있는 품사입니다.",
+      "difficulty": "hard",
+      "subject": "국어",
+      "unit": "문법",
+      "generated_at": "2025-09-23T19:43:15.164139",
+      "id": "국어_문법_hard_3"
+    },
+    {
+      "question": "다음 중 현재완료 시제가 올바르게 사용된 문장은?",
+      "options": [
+        "I have been to Seoul yesterday.",
+        "I have lived here for 5 years.",
+        "I have went to the store.",
+        "I have see the movie last week.",
+        "I have eating lunch now."
+      ],
+      "correct_answer": 2,
+      "explanation": "'I have lived here for 5 years.'가 올바른 현재완료 형태입니다. have + 과거분사 형태로 지속을 나타냅니다.",
+      "hint": "현재완료는 'have/has + 과거분사' 형태를 사용하며, for나 since와 함께 쓰입니다.",
+      "difficulty": "medium",
+      "subject": "영어",
+      "unit": "시제",
+      "generated_at": "2025-09-23T19:43:15.164178",
+      "id": "영어_시제_medium_4"
+    }
+  ]
+}
