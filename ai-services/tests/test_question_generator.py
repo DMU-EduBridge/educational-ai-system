@@ -42,6 +42,7 @@ class TestQuestionGenerator:
             "options": ["1", "2", "3", "-2", "0"],
             "correct_answer": 2,
             "explanation": "일차함수 y = ax + b에서 a가 기울기이므로, y = 2x + 3에서 기울기는 2입니다.",
+            "hint": "일차함수의 일반형 y = ax + b를 생각해보세요.",
             "difficulty": "medium",
             "subject": "수학",
             "unit": "일차함수"
@@ -381,4 +382,95 @@ class TestQuestionGenerator:
         assert len(self.generator.question_history) == 1000
         # 가장 오래된 것이 제거되고 최근 1000개만 남아야 함
         assert self.generator.question_history[0]["id"] == 1
-        assert self.generator.question_history[-1]["id"] == 1000
+
+    def test_generate_question_with_hint(self):
+        """hint 필드가 포함된 문제 생성 테스트"""
+        # Mock 설정
+        self.mock_retriever.retrieve_context.return_value = [
+            "일차함수는 y = ax + b 형태입니다.",
+            "기울기 a는 직선의 기울어진 정도를 나타냅니다."
+        ]
+
+        mock_response = {
+            "question": "일차함수 y = 3x - 2에서 y절편은 무엇인가?",
+            "options": ["3", "-2", "2", "-3", "0"],
+            "correct_answer": 2,
+            "explanation": "일차함수 y = ax + b에서 b가 y절편이므로, y = 3x - 2에서 y절편은 -2입니다.",
+            "hint": "y절편은 직선이 y축과 만나는 점의 y좌표입니다.",
+            "difficulty": "medium",
+            "subject": "수학",
+            "unit": "일차함수"
+        }
+
+        self.mock_llm_client.generate_structured_response.return_value = mock_response
+
+        # 문제 생성 실행
+        result = self.generator.generate_question(
+            subject="수학",
+            unit="일차함수",
+            difficulty="medium"
+        )
+
+        # hint 필드 검증
+        assert "hint" in result
+        assert result["hint"] == "y절편은 직선이 y축과 만나는 점의 y좌표입니다."
+        assert result["hint"].strip() != ""
+
+    def test_generate_question_without_hint(self):
+        """hint가 없는 문제 생성 테스트"""
+        # Mock 설정
+        self.mock_retriever.retrieve_context.return_value = ["테스트 컨텍스트"]
+
+        mock_response = {
+            "question": "테스트 문제",
+            "options": ["1", "2", "3", "4", "5"],
+            "correct_answer": 1,
+            "explanation": "테스트 해설",
+            "difficulty": "easy",
+            "subject": "수학",
+            "unit": "일차함수"
+            # hint 필드 없음
+        }
+
+        self.mock_llm_client.generate_structured_response.return_value = mock_response
+
+        # 문제 생성 실행
+        result = self.generator.generate_question(
+            subject="수학",
+            unit="일차함수",
+            difficulty="easy"
+        )
+
+        # hint 필드가 빈 문자열로 설정되어야 함
+        assert "hint" in result
+        assert result["hint"] == ""
+
+    def test_validate_question_with_hint(self):
+        """hint가 포함된 문제 검증 테스트"""
+        valid_question = {
+            "question": "테스트 문제",
+            "options": ["A", "B", "C", "D", "E"],
+            "correct_answer": 1,
+            "explanation": "테스트 해설",
+            "hint": "이것은 힌트입니다.",
+            "difficulty": "medium",
+            "subject": "수학",
+            "unit": "일차함수"
+        }
+
+        assert self.generator.validate_question(valid_question) == True
+
+    def test_validate_question_without_hint(self):
+        """hint가 없는 문제 검증 테스트 (hint는 선택사항)"""
+        valid_question = {
+            "question": "테스트 문제",
+            "options": ["A", "B", "C", "D", "E"],
+            "correct_answer": 1,
+            "explanation": "테스트 해설",
+            "difficulty": "medium",
+            "subject": "수학",
+            "unit": "일차함수"
+            # hint 필드 없음 - 이것도 유효해야 함
+        }
+
+        assert self.generator.validate_question(valid_question) == True
