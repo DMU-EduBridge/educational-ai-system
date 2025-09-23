@@ -33,9 +33,10 @@
 ```
 educational-ai-system/
 ├── main.py                     # 통합 실행 파일
-├── pyproject.toml              # 프로젝트 설정
+├── pyproject.toml              # 프로젝트 설정 및 의존성 관리
+├── uv.lock                     # 의존성 잠금 파일
 ├── .env.example                # 환경 설정 예시
-├── ai-services/                # 핵심 AI 서비스
+├── ai-services/                # 핵심 AI 서비스 모듈
 │   ├── src/
 │   │   ├── rag/                # RAG 파이프라인 핵심 모듈
 │   │   │   ├── document_processor.py  # 문서 처리 및 청킹

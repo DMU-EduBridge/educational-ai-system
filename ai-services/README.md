@@ -1,18 +1,15 @@
-# Educational AI System - RAG Pipeline
+# Educational AI System - Core Services
 
-중학교 교과서 텍스트를 처리하여 맞춤형 5지선다 문제를 생성하는 RAG(Retrieval-Augmented Generation) 파이프라인입니다.
+> 이 모듈은 Educational AI System의 핵심 RAG 파이프라인을 담당합니다.
+> 루트 디렉토리의 `main.py`를 통해 통합 실행하는 것을 권장합니다.
 
-## 📋 프로젝트 개요
+## 🔧 주요 기능
 
-이 시스템은 다음과 같은 주요 기능을 제공합니다:
+- **RAG 파이프라인**: 문서 처리, 임베딩, 벡터 검색
+- **문제 생성**: AI 기반 5지선다 문제 자동 생성
+- **벡터 데이터베이스**: ChromaDB 기반 지식 저장소
 
-- **교과서 텍스트 처리**: .txt, .md 파일을 로드하고 의미 단위로 청킹
-- **벡터 임베딩**: OpenAI text-embedding-ada-002를 사용한 고품질 임베딩
-- **벡터 검색**: ChromaDB 기반 유사도 검색 및 컨텍스트 검색
-- **문제 생성**: GPT 모델을 활용한 5지선다 문제 자동 생성
-- **CLI 인터페이스**: 사용하기 쉬운 명령줄 도구
-
-## 🏗️ 시스템 아키텍처
+## 📂 모듈 구조
 
 ```
 ai-services/
