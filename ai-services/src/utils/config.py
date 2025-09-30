@@ -10,10 +10,10 @@ class Settings(BaseSettings):
 
     # OpenAI API 설정
     openai_api_key: str = Field(..., description="OpenAI API Key")
-    openai_model: str = Field(default="gpt-3.5-turbo", description="OpenAI LLM Model")
+    openai_model: str = Field(default="gpt-5-mini", description="OpenAI LLM Model")
     openai_embedding_model: str = Field(default="text-embedding-ada-002", description="OpenAI Embedding Model")
-    openai_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="LLM Temperature")
-    openai_max_tokens: int = Field(default=1000, ge=1, le=4000, description="Max tokens for LLM responses")
+    openai_temperature: float = Field(default=1.0, ge=0.0, le=2.0, description="LLM Temperature")
+    openai_max_tokens: int = Field(default=20000, ge=1, le=4000, description="Max tokens for LLM responses")
 
     # ChromaDB 설정
     chroma_db_path: str = Field(default="./data/vector_db", description="ChromaDB persist directory")

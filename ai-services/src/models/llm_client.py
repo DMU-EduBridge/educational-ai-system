@@ -11,10 +11,10 @@ class LLMClient:
     """OpenAI API 클라이언트"""
 
     def __init__(self,
-                 model_name: str = "gpt-3.5-turbo",
+                 model_name: str = "gpt-5-mini",
                  api_key: Optional[str] = None,
-                 temperature: float = 0.7,
-                 max_tokens: int = 1000):
+                 temperature: float = 1.0,
+                 max_tokens: int = 20000):
         """
         LLMClient 초기화
 
@@ -53,7 +53,8 @@ class LLMClient:
             'gpt-4': {'prompt': 0.03, 'completion': 0.06},
             'gpt-4-32k': {'prompt': 0.06, 'completion': 0.12},
             'gpt-4-turbo-preview': {'prompt': 0.01, 'completion': 0.03},
-            'gpt-4o': {'prompt': 0.005, 'completion': 0.015}
+            'gpt-4o': {'prompt': 0.005, 'completion': 0.015},
+            'gpt-5-mini': {'prompt': 0.00025, 'completion': 0.002}
         }
 
     @retry(
@@ -195,9 +196,7 @@ class LLMClient:
         Returns:
             Dict[str, float]: 비용 정보
         """
-        prompt_tokens = self.estimate_tokens(prompt)
-
-        pricing = self.pricing.get(self.model_name, self.pricing['gpt-3.5-turbo'])
+        pricing = self.pricing.get(self.model_name, self.pricing['gpt-5-mini'])
 
         prompt_cost = (prompt_tokens / 1000) * pricing['prompt']
         completion_cost = (estimated_completion_tokens / 1000) * pricing['completion']
@@ -281,7 +280,7 @@ class LLMClient:
         self.usage_stats['total_completion_tokens'] += completion_tokens
 
         # 비용 계산
-        pricing = self.pricing.get(self.model_name, self.pricing['gpt-3.5-turbo'])
+        pricing = self.pricing.get(self.model_name, self.pricing['gpt-5-mini'])
         prompt_cost = (prompt_tokens / 1000) * pricing['prompt']
         completion_cost = (completion_tokens / 1000) * pricing['completion']
         self.usage_stats['total_cost_usd'] += prompt_cost + completion_cost
