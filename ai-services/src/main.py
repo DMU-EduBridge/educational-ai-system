@@ -28,6 +28,7 @@ try:
     from src.rag.retriever import RAGRetriever
     from src.models.llm_client import LLMClient
     from src.models.question_generator import QuestionGenerator
+    from src.evaluation.quality_assessor import QualityAssessor
 except ImportError:
     # 패키지가 설치된 경우의 import
     from utils.config import get_settings, Settings
@@ -38,6 +39,7 @@ except ImportError:
     from rag.retriever import RAGRetriever
     from models.llm_client import LLMClient
     from models.question_generator import QuestionGenerator
+    from evaluation.quality_assessor import QualityAssessor
 
 
 class RAGPipeline:
@@ -86,6 +88,8 @@ class RAGPipeline:
                 llm_client=self.llm_client,
                 retriever=self.retriever
             )
+
+            self.quality_assessor = QualityAssessor(llm_client=self.llm_client)
 
             self.logger.info("RAG Pipeline initialized successfully")
 
@@ -152,6 +156,37 @@ class RAGPipeline:
 
         except Exception as e:
             self.logger.error(f"Error generating questions: {str(e)}")
+            raise
+
+    def evaluate_questions(self, question_file: str, subject: str, unit: str) -> List[Dict[str, Any]]:
+        """생성된 문제 품질 평가"""
+        try:
+            self.logger.info(f"Evaluating questions from {question_file}")
+            with open(question_file, 'r', encoding='utf-8') as f:
+                questions_data = json.load(f)
+
+            results = []
+            for i, question_data in enumerate(questions_data):
+                self.logger.debug(f"Evaluating question {i+1}")
+                # Retrieve context based on the question text itself to find the most relevant source
+                retrieved_docs = self.retriever.retrieve_documents(
+                    query=question_data['question'],
+                    subject=subject,
+                    unit=unit
+                )
+                source_context = "\n\n".join([doc.content for doc in retrieved_docs])
+
+                if not source_context:
+                    self.logger.warning(f"Could not retrieve source context for question {i+1}. Skipping assessment.")
+                    continue
+
+                assessment = self.quality_assessor.assess_question(question_data, source_context)
+                results.append({"question_id": i + 1, "assessment": assessment, "original_question": question_data})
+            
+            self.logger.info(f"Finished evaluating {len(results)} questions.")
+            return results
+        except Exception as e:
+            self.logger.error(f"Error evaluating questions: {str(e)}")
             raise
 
     def get_status(self) -> Dict[str, Any]:
@@ -341,6 +376,52 @@ def generate_questions(ctx, subject, unit, difficulty, count, output):
                 json.dump(questions, f, ensure_ascii=False, indent=2)
 
             click.echo(f"💾 결과가 {output}에 저장되었습니다.")
+
+    except Exception as e:
+        click.echo(f"❌ 오류: {str(e)}", err=True)
+        if ctx.obj['settings'].debug:
+            traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--question-file', required=True, type=click.Path(exists=True), help='평가할 문제 JSON 파일')
+@click.option('--subject', required=True, help='과목명')
+@click.option('--unit', required=True, help='단원명')
+@click.option('--output', type=click.Path(), help='평가 결과 저장 파일 (JSON)')
+@click.pass_context
+def evaluate_questions(ctx, question_file, subject, unit, output):
+    """생성된 문제의 품질을 평가합니다."""
+    pipeline = ctx.obj['pipeline']
+    logger = ctx.obj['logger']
+
+    try:
+        results = pipeline.evaluate_questions(question_file, subject, unit)
+        click.echo(f"✅ 문제 품질 평가 완료! ({len(results)}개)")
+        click.echo("=" * 50)
+
+        for result in results:
+            assessment = result['assessment']
+            if 'error' in assessment:
+                click.echo(f"ID {result['question_id']} 평가 실패: {assessment['error']}", err=True)
+                continue
+
+            click.echo(f"### 문제 ID: {result['question_id']} ###")
+            click.echo(f"  질문: {result['original_question']['question'][:50]}...")
+            click.echo(f"  사용 가능성: {'👍 Yes' if assessment.get('is_usable') else '👎 No'}")
+            click.echo(f"  종합 점수: {assessment.get('overall_score', 'N/A')}")
+            click.echo("  세부 점수:")
+            for criterion, values in assessment.get('scores', {}).items():
+                click.echo(f"    - {criterion.capitalize()}: {values.get('score')}/5")
+            click.echo(f"  요약: {assessment.get('summary', 'N/A')}")
+            click.echo("-" * 50)
+
+        if output:
+            output_path = Path(output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, ensure_ascii=False, indent=2)
+            click.echo(f"💾 평가 결과가 {output}에 저장되었습니다.")
 
     except Exception as e:
         click.echo(f"❌ 오류: {str(e)}", err=True)
