@@ -53,18 +53,18 @@ class QuestionGenerator:
                 search_query = f"{subject} {unit} 개념"
 
             # 관련 컨텍스트 검색
-            context_texts = self.retriever.retrieve_context(
+            retrieved_docs = self.retriever.retrieve_documents(
                 query=search_query,
                 subject=subject,
                 unit=unit,
                 k=3
             )
 
-            if not context_texts:
+            if not retrieved_docs:
                 raise ValueError(f"No context found for {subject} - {unit}")
 
             # 컨텍스트 포맷팅
-            context = "\n\n".join(context_texts)
+            context = self.retriever.format_context(retrieved_docs)
 
             # 프롬프트 생성
             prompt = self._create_question_prompt(
