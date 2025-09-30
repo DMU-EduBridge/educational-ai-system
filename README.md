@@ -5,7 +5,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green.svg)](https://fastapi.tiangolo.com/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--3.5-blue.svg)](https://openai.com)
+[![OpenAI](https://img.shields.io/badge/OpenAI-gpt--5--mini-blue.svg)](https://openai.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-orange.svg)](https://chromadb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -18,7 +18,7 @@
 - 📚 **교과서 텍스트 처리**: .txt, .md 파일을 지능적으로 청킹
 - 🔍 **벡터 임베딩**: OpenAI `text-embedding-ada-002` 기반 고품질 임베딩
 - 💾 **벡터 검색**: ChromaDB를 활용한 빠른 유사도 검색
-- 🧠 **문제 생성**: `GPT-3.5-turbo`를 사용한 교육적 5지선다 문제 생성
+- 🧠 **문제 생성**: `gpt-5-mini`를 사용한 교육적 5지선다 문제 생성
 - 💡 **힌트 및 태그**: 문제 해결을 위한 학습 보조 힌트와 핵심 태그 자동 생성
 - 🚀 **RESTful API**: FastAPI를 활용한 문제 생성 API 제공
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
@@ -151,7 +151,7 @@ API 또는 CLI를 통해 생성된 문제는 `problems` 데이터베이스 스�
   "reviewedAt": null,
   "generationPrompt": null,
   "contextChunkIds": null,
-  "modelName": "gpt-3.5-turbo",
+  "modelName": "gpt-5-mini",
   "createdAt": "2025-09-30T12:00:00.000Z",
   "updatedAt": "2025-09-30T12:00:00.000Z",
   "deletedAt": null
