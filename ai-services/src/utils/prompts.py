@@ -222,6 +222,62 @@ EXPLANATION_PROMPT = PromptTemplate(
     required_variables=['subject', 'concept', 'context']
 )
 
+# 품질 평가용 프롬프트
+QUALITY_ASSESSMENT_PROMPT = PromptTemplate(
+    template="""당신은 AI가 생성한 교육용 문제를 평가하는 전문 평가자입니다.
+주어진 원본 컨텍스트와 생성된 문제를 바탕으로, 다음 기준에 따라 품질을 평가해주세요.
+
+---
+### 원본 컨텍스트
+{source_context}
+---
+### 생성된 문제 (JSON 형식)
+{question_json}
+---
+
+### 평가 기준
+1.  **관련성 (Relevance)**: 문제가 원본 컨텍스트의 핵심 내용을 다루고 있습니까?
+2.  **명확성 (Clarity)**: 질문이 중학생 수준에서 명확하고 모호함 없이 이해할 수 있습니까?
+3.  **정확성 (Correctness)**: 문제의 정답과 해설이 사실에 근거하여 정확합니까?
+4.  **선택지 타당성 (Plausibility of Distractors)**: 오답 선택지가 매력적이고 그럴듯하여, 단순히 정답을 추측하기 어렵게 만듭니까?
+5.  **난이도 일치성 (Difficulty Alignment)**: 문제의 실제 체감 난이도가 명시된 난이도와 일치합니까?
+
+### 출력 형식 (오직 JSON 객체만 반환)
+각 항목에 대해 1(매우 나쁨)부터 5(매우 좋음)까지의 점수와 구체적인 평가 이유를 포함하여 아래 JSON 형식으로만 응답해주세요.
+
+```json
+{{
+    "scores": {{
+        "relevance": {{
+            "score": 정수(1-5),
+            "reason": "평가 이유"
+        }},
+        "clarity": {{
+            "score": 정수(1-5),
+            "reason": "평가 이유"
+        }},
+        "correctness": {{
+            "score": 정수(1-5),
+            "reason": "평가 이유"
+        }},
+        "distractor_plausibility": {{
+            "score": 정수(1-5),
+            "reason": "평가 이유"
+        }},
+        "difficulty_alignment": {{
+            "score": 정수(1-5),
+            "reason": "평가 이유"
+        }}
+    }},
+    "overall_score": 평균 점수(소수점 첫째 자리까지),
+    "is_usable": 사용 가능 여부 (true/false, 평균 3.5 이상일 때 true),
+    "summary": "전반적인 평가 요약 및 개선 제안"
+}}
+```
+""",
+    required_variables=['source_context', 'question_json']
+)
+
 
 class PromptManager:
     """프롬프트 관리 클래스"""
@@ -234,7 +290,8 @@ class PromptManager:
             'context_summary': CONTEXT_SUMMARY_PROMPT,
             'question_validation': QUESTION_VALIDATION_PROMPT,
             'keyword_extraction': KEYWORD_EXTRACTION_PROMPT,
-            'explanation': EXPLANATION_PROMPT
+            'explanation': EXPLANATION_PROMPT,
+            'quality_assessment': QUALITY_ASSESSMENT_PROMPT
         }
 
     def get_template(self, name: str) -> PromptTemplate:
@@ -325,3 +382,8 @@ def get_explanation_prompt(concept: str, subject: str, context: str) -> str:
         subject=subject,
         context=context
     )
+
+
+def get_quality_assessment_prompt() -> PromptTemplate:
+    """품질 평가용 프롬프트 템플릿 가져오기"""
+    return prompt_manager.get_template('quality_assessment')
