@@ -148,7 +148,7 @@ class QuestionGenerator:
 
     def validate_question(self, question_data: Dict[str, Any]) -> bool:
         """
-        문제 데이터 검증
+        문제 데이터 검증 (모든 필드 필수)
 
         Args:
             question_data: 문제 데이터
@@ -157,45 +157,61 @@ class QuestionGenerator:
             bool: 유효성 여부
         """
         try:
-            required_fields = ['question', 'options', 'correct_answer', 'explanation', 'difficulty', 'subject', 'unit']
-            optional_fields = ['hint']  # hint는 선택사항
+            # 모든 필드를 필수로 간주
+            required_fields = [
+                'title', 'description', 'content', 'type', 'difficulty', 'subject',
+                'gradeLevel', 'unit', 'options', 'correctAnswer', 'explanation',
+                'hints', 'tags', 'points', 'timeLimit', 'isAIGenerated'
+            ]
 
-            # 필수 필드 확인
+            # 필수 필드 존재 여부 확인
             for field in required_fields:
-                if field not in question_data:
+                if field not in question_data or question_data[field] is None:
                     self.logger.error(f"Missing required field: {field}")
                     return False
 
-            # 문제 텍스트 확인
-            if not question_data['question'].strip():
-                self.logger.error("Question text is empty")
+            # 내용 확인 (비어 있으면 안 됨)
+            if not all(question_data[f].strip() for f in ['title', 'content', 'explanation']):
+                self.logger.error("Title, content, or explanation is empty")
+                return False
+            
+            # Description은 비어있을 수 있으나, None이어서는 안됨
+            if question_data['description'] is None:
+                self.logger.error("Description field is missing")
                 return False
 
-            # 선택지 확인
+            # 선택지 확인 (5지선다, 비어 있으면 안 됨)
             options = question_data['options']
             if not isinstance(options, list) or len(options) != 5:
                 self.logger.error("Options must be a list with exactly 5 items")
                 return False
+            if not all(isinstance(opt, str) and opt.strip() for opt in options):
+                self.logger.error("All options must be non-empty strings")
+                return False
 
-            for i, option in enumerate(options, 1):
-                if not isinstance(option, str) or not option.strip():
-                    self.logger.error(f"Option {i} is empty or not a string")
+            # 정답 확인 (문자열 형태의 숫자 1-5)
+            correct_answer = question_data['correctAnswer']
+            if not isinstance(correct_answer, str) or not correct_answer.isdigit() or not 1 <= int(correct_answer) <= 5:
+                self.logger.error("Correct answer must be a string representing an integer between 1 and 5")
+                return False
+
+            # JSON 형태의 리스트 필드 확인 (비어 있으면 안 됨)
+            for field in ['hints', 'tags']:
+                if not isinstance(question_data[field], list) or not question_data[field]:
+                    self.logger.error(f"Field '{field}' must be a non-empty list")
                     return False
 
-            # 정답 확인
-            correct_answer = question_data['correct_answer']
-            if not isinstance(correct_answer, int) or correct_answer < 1 or correct_answer > 5:
-                self.logger.error("Correct answer must be an integer between 1 and 5")
+            # 숫자형 필드 확인
+            if not all(isinstance(question_data[f], int) for f in ['points', 'timeLimit']):
+                self.logger.error("Fields 'points' and 'timeLimit' must be integers")
                 return False
 
-            # 해설 확인
-            if not question_data['explanation'].strip():
-                self.logger.error("Explanation is empty")
-                return False
-
-            # 난이도 확인
+            # 기타 필드 확인
             if question_data['difficulty'] not in ['easy', 'medium', 'hard']:
                 self.logger.error("Difficulty must be 'easy', 'medium', or 'hard'")
+                return False
+            if question_data['type'] not in ['multiple_choice', 'short_answer', 'essay']:
+                self.logger.error("Invalid problem type")
                 return False
 
             return True
@@ -242,8 +258,8 @@ class QuestionGenerator:
             stats['by_unit'][unit] = stats['by_unit'].get(unit, 0) + 1
 
             # 생성 시간
-            if 'generated_at' in question:
-                stats['generation_times'].append(question['generated_at'])
+            if 'createdAt' in question:
+                stats['generation_times'].append(question['createdAt'])
 
         return stats
 
@@ -253,7 +269,7 @@ class QuestionGenerator:
                               difficulty: str,
                               context: str) -> str:
         """
-        문제 생성용 프롬프트 생성
+        문제 생성용 프롬프트 생성 (모든 필드 필수)
 
         Args:
             subject: 과목명
@@ -264,13 +280,11 @@ class QuestionGenerator:
         Returns:
             str: 생성된 프롬프트
         """
-        # 난이도별 가이드라인
         difficulty_guidelines = {
             'easy': '기본 개념 이해 확인, 단순 암기, 용어 정의',
             'medium': '개념 적용 및 계산, 예제 문제 응용',
             'hard': '복합적 사고 및 응용, 심화 분석, 문제 해결'
         }
-
         difficulty_guide = difficulty_guidelines.get(difficulty, difficulty_guidelines['medium'])
 
         prompt = f"""당신은 중학교 {subject} 과목의 전문 교사입니다.
@@ -280,39 +294,31 @@ class QuestionGenerator:
 {context}
 
 문제 생성 규칙:
-1. 교과서 내용에 직접 관련된 문제
-2. 중학교 1학년 수준에 맞는 명확한 문제
-3. 5개의 선택지 (정답 1개, 매력적인 오답 4개)
-4. 상세하고 교육적인 해설
-5. 문제 해결에 도움이 되는 힌트 (선택사항)
-6. 한국어로 작성
+1. 교과서 내용에 직접 관련된 문제.
+2. 중학교 1학년 수준에 맞는 명확한 문제.
+3. 5개의 선택지 (정답 1개, 매력적인 오답 4개).
+4. 상세하고 교육적인 해설.
+5. 문제 해결에 도움이 되는 힌트 목록 (최소 1개 이상).
+6. 문제의 핵심 내용을 담은 간결한 제목.
+7. 문제에 대한 부가적인 설명 (description).
+8. 관련 개념을 나타내는 태그 목록 (최소 1개 이상).
+9. 모든 내용은 한국어로 작성.
 
 난이도 기준 ({difficulty}):
 {difficulty_guide}
 
-선택지 작성 가이드:
-- 정답: 교과서 내용과 완전히 일치하는 올바른 답
-- 오답: 일부분만 맞거나, 일반적인 오개념, 유사하지만 틀린 내용
-- 모든 선택지는 문법적으로 자연스럽고 길이가 비슷해야 함
-
-힌트 작성 가이드:
-- 직접적인 정답을 제시하지 않으면서 문제 해결 방향 제시
-- 관련 개념이나 공식에 대한 간접적인 언급
-- 문제를 푸는 데 도움이 되는 사고 과정 유도
-- 너무 명확하지 않게, 학습자의 사고를 자극하는 수준
-
-출력 형식 (JSON만 출력):
+출력 형식 (JSON만 출력, 다른 설명 없이 JSON 객체만 반환):
 {{
-    "question": "문제 텍스트",
+    "title": "문제의 간결한 제목",
+    "description": "문제에 대한 부가적인 설명입니다.",
+    "content": "여기에 문제의 본문을 작성합니다.",
     "options": ["1번 선택지", "2번 선택지", "3번 선택지", "4번 선택지", "5번 선택지"],
-    "correct_answer": 정답_번호(1-5),
-    "explanation": "정답 해설 및 풀이 과정",
-    "hint": "문제 해결을 위한 힌트 (선택사항)",
-    "difficulty": "{difficulty}",
-    "subject": "{subject}",
-    "unit": "{unit}"
-}}"""
-
+    "correct_answer": 정답_번호(1-5 사이의 숫자),
+    "explanation": "정답에 대한 상세하고 친절한 해설입니다.",
+    "hints": ["문제 해결에 도움이 되는 첫 번째 힌트"],
+    "tags": ["관련_태그_1"]
+}}
+"""
         return prompt
 
     def _validate_and_clean_question(self,
@@ -321,7 +327,7 @@ class QuestionGenerator:
                                    unit: str,
                                    difficulty: str) -> Dict[str, Any]:
         """
-        생성된 문제 검증 및 정리
+        생성된 문제 검증 및 정리 (모든 필드 필수)
 
         Args:
             response: LLM 응답
@@ -330,37 +336,65 @@ class QuestionGenerator:
             difficulty: 난이도
 
         Returns:
-            Dict[str, Any]: 검증된 문제 데이터
+            Dict[str, Any]: 검증 및 변환된 문제 데이터
         """
-        # 기본값 설정
-        cleaned_question = {
-            'question': response.get('question', '').strip(),
-            'options': response.get('options', []),
-            'correct_answer': response.get('correct_answer', 1),
-            'explanation': response.get('explanation', '').strip(),
-            'hint': response.get('hint', '').strip(),  # hint 필드 추가 (선택사항)
+        now = datetime.now().isoformat()
+        ai_generation_id = f"{subject}_{unit}_{difficulty}_{len(self.question_history) + 1}"
+
+        # LLM 응답에서 데이터 추출 및 기본값 설정
+        title = response.get('title', 'Untitled').strip()
+        description = response.get('description', '').strip()
+        content = response.get('content', '').strip()
+        options = response.get('options', [])
+        correct_answer_num = response.get('correct_answer', 1)
+        explanation = response.get('explanation', '').strip()
+        hints = response.get('hints', [])
+        tags = response.get('tags', [])
+
+        # 데이터 변환 및 추가 필드 설정
+        problem_data = {
+            'id': None,  # DB에서 자동 생성
+            'title': title if title else content[:50], # 제목 없으면 내용에서 일부 추출
+            'description': description,
+            'content': content,
+            'type': 'multiple_choice', # 5지선다 유형
             'difficulty': difficulty,
             'subject': subject,
+            'gradeLevel': 'Middle-1', # 중학교 1학년으로 가정
             'unit': unit,
-            'generated_at': datetime.now().isoformat(),
-            'id': f"{subject}_{unit}_{difficulty}_{len(self.question_history) + 1}"
+            'options': [str(opt).strip() for opt in options] if isinstance(options, list) else [],
+            'correctAnswer': str(correct_answer_num), # DB 스키마에 맞춰 문자열로 변환
+            'explanation': explanation,
+            'hints': [str(h).strip() for h in hints] if isinstance(hints, list) else [],
+            'tags': [str(t).strip() for t in tags] if isinstance(tags, list) else [],
+            'points': 10, # 기본 점수
+            'timeLimit': 60, # 기본 제한 시간 (초)
+            'isActive': True,
+            'isAIGenerated': True,
+            'aiGenerationId': ai_generation_id,
+            'qualityScore': None,
+            'reviewStatus': 'pending', # 검토 대기 상태
+            'reviewedAt': None,
+            'generationPrompt': None, # 필요시 프롬프트 저장
+            'contextChunkIds': None, # 필요시 컨텍스트 ID 저장
+            'modelName': self.llm_client.model_name,
+            'createdAt': now,
+            'updatedAt': now,
+            'deletedAt': None
         }
-
-        # 옵션 정리
-        if isinstance(cleaned_question['options'], list):
-            cleaned_question['options'] = [str(opt).strip() for opt in cleaned_question['options']]
-
-        # 정답 번호 검증
+        
+        # 정답 번호 검증 (1-5 사이의 숫자인지)
         try:
-            cleaned_question['correct_answer'] = int(cleaned_question['correct_answer'])
+            if not (1 <= int(problem_data['correctAnswer']) <= 5):
+                problem_data['correctAnswer'] = '1'
         except (ValueError, TypeError):
-            cleaned_question['correct_answer'] = 1
+            problem_data['correctAnswer'] = '1'
 
-        # 검증 수행
-        if not self.validate_question(cleaned_question):
+        # 최종 데이터 유효성 검사
+        if not self.validate_question(problem_data):
             raise ValueError("Generated question failed validation")
 
-        return cleaned_question
+        return problem_data
 
     def _generate_varied_query(self, subject: str, unit: str, index: int) -> str:
         """
