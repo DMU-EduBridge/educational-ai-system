@@ -54,6 +54,31 @@ educational-ai-system/
 
 ### 1. 설치
 
+**OCR 기능 사용을 위한 Tesseract 설치 (필수)**
+
+PDF 파일의 텍스트를 추출하기 위해 Tesseract OCR 엔진이 필요합니다. 아래 운영체제에 맞는 안내에 따라 설치해주세요.
+
+- **macOS (Homebrew 사용):**
+  ```bash
+  brew install tesseract
+  brew install tesseract-lang # 한국어 등 추가 언어팩 설치
+  ```
+
+- **Ubuntu/Debian:**
+  ```bash
+  sudo apt update
+  sudo apt install tesseract-ocr
+  sudo apt install tesseract-ocr-kor # 한국어 언어팩 설치
+  ```
+
+- **Windows (Chocolatey 또는 공식 설치 프로그램 사용):**
+  - [공식 설치 프로그램 다운로드](https://github.com/UB-Mannheim/tesseract/wiki)
+  - 설치 시 "Korean" 언어팩을 반드시 포함하여 설치해야 합니다.
+
+설치 후, `tesseract` 명령어가 시스템 경로에 등록되었는지 확인하세요.
+
+**프로젝트 의존성 설치**
+
 ```bash
 # 저장소 클론
 git clone https://github.com/DMU-EduBridge/educational-ai-system.git
