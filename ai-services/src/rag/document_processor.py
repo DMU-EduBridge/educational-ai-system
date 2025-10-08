@@ -2,6 +2,10 @@ from typing import List, Dict, Any
 import re
 from pathlib import Path
 from dataclasses import dataclass
+import fitz  # PyMuPDF
+from PIL import Image
+import pytesseract
+import io
 
 
 @dataclass
@@ -15,6 +19,8 @@ class DocumentProcessor:
     """교과서 텍스트 처리 및 청킹"""
 
     def __init__(self):
+        # Tesseract 경로 설정 (필요 시)
+        # 예: pytesseract.pytesseract.tesseract_cmd = r'/usr/local/bin/tesseract'
         pass
 
     def load_textbook(self, file_path: str, subject: str, unit: str) -> List[Document]:
@@ -35,11 +41,15 @@ class DocumentProcessor:
             if not file_path_obj.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
 
-            if file_path_obj.suffix.lower() not in ['.txt', '.md']:
-                raise ValueError(f"Unsupported file format: {file_path_obj.suffix}")
+            file_suffix = file_path_obj.suffix.lower()
 
-            with open(file_path_obj, 'r', encoding='utf-8') as f:
-                content = f.read()
+            if file_suffix in ['.txt', '.md']:
+                with open(file_path_obj, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            elif file_suffix == '.pdf':
+                content = self._load_pdf_with_ocr(str(file_path_obj))
+            else:
+                raise ValueError(f"Unsupported file format: {file_suffix}")
 
             # 텍스트 전처리
             cleaned_text = self.preprocess_text(content)
@@ -60,6 +70,50 @@ class DocumentProcessor:
 
         except Exception as e:
             raise Exception(f"Error loading textbook: {str(e)}")
+
+    def _load_pdf_with_ocr(self, file_path: str) -> str:
+        """
+        PDF 파일에서 텍스트를 추출하고, 이미지 기반 페이지는 OCR 처리
+
+        Args:
+            file_path: PDF 파일 경로
+
+        Returns:
+            str: 추출된 전체 텍스트
+        """
+        full_text = ""
+        try:
+            doc = fitz.open(file_path)
+
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                
+                # 1. 텍스트 우선 추출
+                page_text = page.get_text("text")
+                
+                if page_text.strip():
+                    full_text += page_text + "\n"
+                else:
+                    # 2. 텍스트가 없으면 OCR 시도
+                    image_list = page.get_images(full=True)
+                    if image_list:
+                        for img_index, img in enumerate(image_list):
+                            xref = img[0]
+                            base_image = doc.extract_image(xref)
+                            image_bytes = base_image["image"]
+                            
+                            try:
+                                image = Image.open(io.BytesIO(image_bytes))
+                                # OCR 수행 (한국어 + 영어)
+                                ocr_text = pytesseract.image_to_string(image, lang='kor+eng')
+                                full_text += ocr_text + "\n"
+                            except Exception as ocr_err:
+                                print(f"OCR failed for image {img_index} on page {page_num}: {ocr_err}")
+
+            doc.close()
+            return full_text
+        except Exception as e:
+            raise Exception(f"Error processing PDF file {file_path}: {str(e)}")
 
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """
