@@ -22,7 +22,6 @@ if parent_dir not in sys.path:
 try:
     from src.utils.config import get_settings, Settings
     from src.utils.logger import setup_application_logger, get_logger
-    from src.utils.db import init_connection_pool, close_connection_pool
     from src.rag.document_processor import DocumentProcessor
     from src.rag.embeddings import EmbeddingsManager
     from src.rag.vector_store import VectorStore
@@ -301,7 +300,6 @@ def cli(ctx, config, debug, verbose):
     ctx.obj['logger'] = logger
 
     try:
-        init_connection_pool(settings)
         ctx.obj['pipeline'] = RAGPipeline(settings)
         
         # 하위 커맨드가 없을 때 기본 정보 출력
@@ -313,10 +311,6 @@ def cli(ctx, config, debug, verbose):
         if debug:
             traceback.print_exc()
         sys.exit(1)
-    finally:
-        # 애플리케이션 종료 시 항상 연결 풀 닫기
-        if ctx.invoked_subcommand is not None:
-            close_connection_pool()
 
 
 @cli.command()

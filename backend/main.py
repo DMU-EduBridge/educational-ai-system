@@ -20,7 +20,6 @@ try:
     # ai-services의 RAGPipeline 임포트
     from src.main import RAGPipeline
     from src.utils.logger import get_logger
-    from src.utils.db import init_connection_pool, close_connection_pool
     from src.analysis.student_analyzer import StudentAnalyzer
 except ImportError as e:
     print(f"Error importing from ai-services: {e}")
@@ -49,13 +48,9 @@ analyzer = None
 
 @app.on_event("startup")
 def startup_event():
-    """애플리케이션 시작 시 RAG 파이프라인과 DB 연결 풀을 초기화합니다."""
+    """애플리케이션 시작 시 RAG 파이프라인을 초기화합니다."""
     global pipeline, analyzer
     try:
-        logger.info("Initializing Database Connection Pool...")
-        init_connection_pool()
-        logger.info("Database Connection Pool initialized.")
-
         logger.info("Initializing RAG Pipeline...")
         pipeline = RAGPipeline()
         analyzer = StudentAnalyzer(llm_client=pipeline.llm_client)
@@ -64,13 +59,6 @@ def startup_event():
         logger.error(f"Failed to initialize application: {e}")
         pipeline = None
         analyzer = None
-
-@app.on_event("shutdown")
-def shutdown_event():
-    """애플리케이션 종료 시 DB 연결 풀을 닫습니다."""
-    logger.info("Closing Database Connection Pool...")
-    close_connection_pool()
-    logger.info("Database Connection Pool closed.")
 
 # 요청 본문을 위한 Pydantic 모델
 class QuestionRequest(BaseModel):

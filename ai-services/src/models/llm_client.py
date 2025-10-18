@@ -198,6 +198,7 @@ class LLMClient:
         """
         pricing = self.pricing.get(self.model_name, self.pricing['gpt-5-mini'])
 
+        prompt_tokens = self.estimate_tokens(prompt)
         prompt_cost = (prompt_tokens / 1000) * pricing['prompt']
         completion_cost = (estimated_completion_tokens / 1000) * pricing['completion']
         total_cost = prompt_cost + completion_cost

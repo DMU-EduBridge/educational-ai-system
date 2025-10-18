@@ -41,7 +41,7 @@ class StudentAnalyzer:
             p.difficulty
         FROM problem_logs pl
         JOIN problems p ON pl.problemId = p.id
-        WHERE pl.userId = %s;
+        WHERE pl.userId = ?;
         """
         
         try:

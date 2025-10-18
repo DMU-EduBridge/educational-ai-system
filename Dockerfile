@@ -7,8 +7,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 3. 시스템 의존성 설치
-# psycopg2 라이브러리가 필요로 하는 postgresql-client를 설치합니다.
-RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+# 필요한 경우 apt-get을 사용하여 시스템 라이브러리를 설치합니다.
+# 예: RUN apt-get update && apt-get install -y gcc
 
 # 4. Python 의존성 관리 도구 (uv) 설치
 # 프로젝트에서 uv를 사용하므로, pip를 통해 uv를 설치합니다.

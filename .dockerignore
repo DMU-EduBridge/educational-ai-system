@@ -1,0 +1,15 @@
+# Git
+.git
+
+# Python virtual environment
+.venv
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Test artifacts
+.pytest_cache/
+
+# Docker files
+.dockerignore
