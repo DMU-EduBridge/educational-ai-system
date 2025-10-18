@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     chroma_db_path: str = Field(default="./data/vector_db", description="ChromaDB persist directory")
     chroma_collection_name: str = Field(default="textbook_embeddings", description="ChromaDB collection name")
 
+    # PostgreSQL 설정
+    db_host: str = Field(default="localhost", description="PostgreSQL host")
+    db_port: int = Field(default=5432, description="PostgreSQL port")
+    db_user: str = Field(default="user", description="PostgreSQL user")
+    db_password: str = Field(default="password", description="PostgreSQL password")
+    db_name: str = Field(default="dbname", description="PostgreSQL database name")
+
     # 텍스트 처리 설정
     chunk_size: int = Field(default=1000, ge=100, le=4000, description="Text chunk size")
     chunk_overlap: int = Field(default=200, ge=0, le=1000, description="Text chunk overlap")
