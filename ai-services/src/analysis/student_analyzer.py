@@ -145,7 +145,7 @@ class StudentAnalyzer:
         
         try:
             # LLMClient를 사용하여 리포트 생성
-            report = self.llm_client.generate(prompt)
+            report = self.llm_client.generate_response(prompt)
             self.logger.info(f"Successfully generated report for user {user_id}.")
             return report
         except Exception as e:
