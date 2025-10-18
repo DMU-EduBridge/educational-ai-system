@@ -1,34 +1,36 @@
 # 🎓 Educational AI System
 
-> 교과서 기반 AI 문제 생성 시스템  
-> RAG(Retrieval-Augmented Generation)를 활용한 5지선다 문제 자동 생성
+> 교과서 기반 AI 문제 생성 및 학생 분석 시스템
+> RAG(Retrieval-Augmented Generation)를 활용한 5지선다 문제 자동 생성 및 학생 데이터 분석
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green.svg)](https://fastapi.tiangolo.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-gpt--5--mini-blue.svg)](https://openai.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-orange.svg)](https://chromadb.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue.svg)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📋 프로젝트 개요
 
-이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하는 AI 시스템입니다. RAG 파이프라인을 통해 정확하고 교육적인 문제를 생성하며, FastAPI를 통해 RESTful API를 제공합니다.
+이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하고, 학생의 **문제 풀이 로그를 분석하여 종합 리포트를 생성**하는 AI 시스템입니다. RAG 파이프라인을 통해 정확하고 교육적인 문제를 생성하며, FastAPI를 통해 RESTful API를 제공합니다.
 
 ### ✨ 주요 기능
 
-- 📚 **교과서 텍스트 처리**: .txt, .md 파일을 지능적으로 청킹
+- 📚 **교과서 텍스트 처리**: .txt, .md, .pdf 파일을 지능적으로 청킹
 - 🔍 **벡터 임베딩**: OpenAI `text-embedding-ada-002` 기반 고품질 임베딩
 - 💾 **벡터 검색**: ChromaDB를 활용한 빠른 유사도 검색
 - 🧠 **문제 생성**: `gpt-5-mini`를 사용한 교육적 5지선다 문제 생성
+- 👨‍🎓 **학생 리포트 생성**: 학생의 문제 풀이 로그를 분석하여 강점, 약점, 개선 방안을 담은 종합 리포트 생성
 - 💡 **힌트 및 태그**: 문제 해결을 위한 학습 보조 힌트와 핵심 태그 자동 생성
-- 🚀 **RESTful API**: FastAPI를 활용한 문제 생성 API 제공
+- 🚀 **RESTful API**: FastAPI를 활용한 문제 생성 및 학생 분석 API 제공
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
 
 ### 🎯 사용 사례
 
-- **교사**: 교과서 내용 기반 맞춤형 문제 출제
-- **학생**: 특정 단원에 대한 연습 문제 생성
-- **교육기관**: 자동화된 평가 도구 개발
-- **에듀테크**: AI 기반 학습 콘텐츠 제작
+- **교사**: 교과서 내용 기반 맞춤형 문제 출제 및 학생 학습 상태 분석
+- **학생**: 특정 단원에 대한 연습 문제 생성 및 자신의 학습 상태 진단
+- **교육기관**: 자동화된 평가 및 피드백 도구 개발
+- **에듀테크**: AI 기반 개인 맞춤형 학습 콘텐츠 제작
 
 ## 🏗️ 시스템 아키텍처
 
@@ -39,8 +41,9 @@ educational-ai-system/
 ├── ai-services/                # 핵심 AI 서비스 모듈
 │   ├── src/
 │   │   ├── rag/                # RAG 파이프라인 핵심 모듈
-│   │   ├── models/             # AI 모델 관리 (문제 생성기 포함)
-│   │   ├── utils/              # 유틸리티 모듈 (설정, 로거 등)
+│   │   ├── models/             # AI 모델 관리
+│   │   ├── analysis/           # 학생 분석 모듈
+│   │   ├── utils/              # 유틸리티 모듈 (설정, 로거, DB 등)
 │   │   └── main.py             # CLI 메인 애플리케이션
 │   ├── tests/                  # 테스트 코드
 │   └── data/                   # 샘플 데이터 및 벡터 DB
@@ -94,14 +97,25 @@ pip install -e .
 
 ### 2. 환경 설정
 
-`.env.example` 파일을 복사하여 `.env` 파일을 생성하고, OpenAI API 키를 설정합니다.
+`.env.example` 파일을 복사하여 `.env` 파일을 생성하고, OpenAI API 키와 데이터베이스 정보를 설정합니다.
 
 ```bash
 # 환경 설정 파일 복사
 cp .env.example .env
+```
 
-# .env 파일을 열어 API 키 설정
-# OPENAI_API_KEY="sk-your-actual-api-key-here"
+`.env` 파일을 열어 아래 내용을 자신의 환경에 맞게 수정합니다.
+
+```dotenv
+# OpenAI API 설정
+OPENAI_API_KEY=your_openai_api_key_here
+
+# PostgreSQL Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
 ```
 
 ### 3. 백엔드 서버 실행
@@ -115,18 +129,20 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 서버가 실행되면 브라우저에서 `http://localhost:8000/docs` 로 접속하여 API 문서를 확인하고 테스트할 수 있습니다.
 
-### 4. (옵션) CLI를 통한 직접 실행
+### 4. CLI를 통한 직접 실행
 
 개발 및 디버깅 목적으로 CLI를 직접 사용할 수 있습니다.
 
+**교과서 처리**
 ```bash
-# (첫 사용 시) 교과서 처리 및 벡터 DB 생성
 python -m ai-services.src.main process-textbook \
   --file ai-services/data/sample_textbooks/math_unit1.txt \
   --subject 수학 \
   --unit 일차함수
+```
 
-# 문제 생성
+**문제 생성**
+```bash
 python -m ai-services.src.main generate-questions \
   --subject 수학 \
   --unit 일차함수 \
@@ -134,63 +150,44 @@ python -m ai-services.src.main generate-questions \
   --count 1
 ```
 
-## 📝 문제 출력 형식
-
-API 또는 CLI를 통해 생성된 문제는 `problems` 데이터베이스 스키마와 호환되는 다음과 같은 JSON 형식으로 출력됩니다.
-
-```json
-{
-  "title": "일차함수의 기울기",
-  "description": "일차함수 y = ax + b의 형태에서 기울기 a의 의미를 이해하는지 묻는 문제입니다.",
-  "content": "일차함수 y = 2x + 3에서 기울기는 무엇인가?",
-  "type": "multiple_choice",
-  "difficulty": "easy",
-  "subject": "수학",
-  "gradeLevel": "Middle-1",
-  "unit": "일차함수",
-  "options": [
-    "1",
-    "2",
-    "3",
-    "-2",
-    "0"
-  ],
-  "correctAnswer": "2",
-  "explanation": "일차함수 y = ax + b에서 a가 기울기이므로, y = 2x + 3에서 기울기는 2입니다.",
-  "hints": [
-    "일차함수의 일반형 y = ax + b를 생각해보세요.",
-    "x 앞의 계수가 기울기를 의미합니다."
-  ],
-  "tags": [
-    "일차함수",
-    "기울기",
-    "y절편"
-  ],
-  "points": 10,
-  "timeLimit": 60,
-  "isActive": true,
-  "isAIGenerated": true,
-  "aiGenerationId": "수학_일차함수_easy_1",
-  "qualityScore": null,
-  "reviewStatus": "pending",
-  "reviewedAt": null,
-  "generationPrompt": null,
-  "contextChunkIds": null,
-  "modelName": "gpt-5-mini",
-  "createdAt": "2025-09-30T12:00:00.000Z",
-  "updatedAt": "2025-09-30T12:00:00.000Z",
-  "deletedAt": null
-}
+**학생 리포트 생성**
+```bash
+python -m ai-services.src.main analyze-student --user-id 'user_1234'
 ```
 
-## 🔄 워크플로우
+## 📚 API 엔드포인트
 
-1.  **📝 교과서 업로드** → 텍스트 파일을 시스템에 입력 (CLI)
-2.  **🔪 텍스트 청킹 & 💾 벡터 저장** → 의미 단위로 분할 후 ChromaDB에 저장
-3.  **🚀 API 요청** → 클라이언트가 FastAPI 서버에 문제 생성 요청
-4.  **🔍 컨텍스트 검색** → 질의와 관련된 내용을 벡터 DB에서 검색
-5.  **🧠 문제 생성** → 검색된 컨텍스트를 기반으로 LLM이 문제 생성
-6.  **📤 API 응답** → 생성된 문제를 JSON 형식으로 클라이언트에 반환
+### 문제 생성
+
+- **POST** `/generate-question`
+- **설명**: 주어진 조건에 따라 새로운 문제를 생성합니다.
+- **요청 본문**:
+  ```json
+  {
+    "subject": "수학",
+    "unit": "일차함수",
+    "difficulty": "medium",
+    "count": 1
+  }
+  ```
+- **성공 응답 (200 OK)**: 생성된 문제 목록 (JSON 배열)
+
+### 학생 성과 분석
+
+- **POST** `/analyze-student-performance`
+- **설명**: 특정 학생의 문제 풀이 로그를 분석하여 종합 리포트를 생성합니다.
+- **요청 본문**:
+  ```json
+  {
+    "user_id": "user_1234"
+  }
+  ```
+- **성공 응답 (200 OK)**:
+  ```json
+  {
+    "report": "학생 user_1234에 대한 종합 분석 리포트..."
+  }
+  ```
 
 ## 🧪 테스트
 
