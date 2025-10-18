@@ -22,6 +22,7 @@ if parent_dir not in sys.path:
 try:
     from src.utils.config import get_settings, Settings
     from src.utils.logger import setup_application_logger, get_logger
+    from src.utils.db import init_connection_pool, close_connection_pool
     from src.rag.document_processor import DocumentProcessor
     from src.rag.embeddings import EmbeddingsManager
     from src.rag.vector_store import VectorStore
@@ -29,10 +30,12 @@ try:
     from src.models.llm_client import LLMClient
     from src.models.question_generator import QuestionGenerator
     from src.evaluation.quality_assessor import QualityAssessor
+    from src.analysis.student_analyzer import StudentAnalyzer
 except ImportError:
     # 패키지가 설치된 경우의 import
     from utils.config import get_settings, Settings
     from utils.logger import setup_application_logger, get_logger
+    from utils.db import init_connection_pool, close_connection_pool
     from rag.document_processor import DocumentProcessor
     from rag.embeddings import EmbeddingsManager
     from rag.vector_store import VectorStore
@@ -40,6 +43,7 @@ except ImportError:
     from models.llm_client import LLMClient
     from models.question_generator import QuestionGenerator
     from evaluation.quality_assessor import QualityAssessor
+    from analysis.student_analyzer import StudentAnalyzer
 
 
 class RAGPipeline:
@@ -260,7 +264,7 @@ class RAGPipeline:
 
 
 # CLI 애플리케이션 정의
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option('--config', type=click.Path(exists=True), help='설정 파일 경로')
 @click.option('--debug', is_flag=True, help='디버그 모드')
 @click.option('--verbose', is_flag=True, help='상세 출력')
@@ -271,7 +275,6 @@ def cli(ctx, config, debug, verbose):
 
     # 설정 로드
     if config:
-        # 설정 파일이 제공된 경우 (향후 구현)
         settings = get_settings()
     else:
         settings = get_settings()
@@ -298,12 +301,22 @@ def cli(ctx, config, debug, verbose):
     ctx.obj['logger'] = logger
 
     try:
+        init_connection_pool(settings)
         ctx.obj['pipeline'] = RAGPipeline(settings)
+        
+        # 하위 커맨드가 없을 때 기본 정보 출력
+        if ctx.invoked_subcommand is None:
+            click.echo("Educational AI System CLI. 사용법을 보려면 --help를 사용하세요.")
+
     except Exception as e:
         logger.error(f"Failed to initialize pipeline: {str(e)}")
         if debug:
             traceback.print_exc()
         sys.exit(1)
+    finally:
+        # 애플리케이션 종료 시 항상 연결 풀 닫기
+        if ctx.invoked_subcommand is not None:
+            close_connection_pool()
 
 
 @cli.command()
@@ -504,6 +517,30 @@ def test_pipeline(ctx):
 
     except Exception as e:
         click.echo(f"❌ 테스트 실패: {str(e)}", err=True)
+        if ctx.obj['settings'].debug:
+            traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--user-id', required=True, help='분석할 학생의 ID')
+@click.pass_context
+def analyze_student(ctx, user_id):
+    """학생의 학습 로그를 분석하여 리포트를 생성합니다."""
+    pipeline = ctx.obj['pipeline']
+    logger = ctx.obj['logger']
+
+    try:
+        analyzer = StudentAnalyzer(llm_client=pipeline.llm_client)
+        report = analyzer.analyze(user_id)
+
+        click.echo("✅ 학생 분석 리포트 생성 완료!")
+        click.echo("=" * 50)
+        click.echo(report)
+        click.echo("=" * 50)
+
+    except Exception as e:
+        click.echo(f"❌ 오류: {str(e)}", err=True)
         if ctx.obj['settings'].debug:
             traceback.print_exc()
         sys.exit(1)
