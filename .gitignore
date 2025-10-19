@@ -21,6 +21,10 @@ env/
 **/test_data/
 **/logs/
 
+# Local databases
+/ai-services/data/vector_db/
+/db/
+
 # IDE and editor files
 .vscode/
 .idea/
