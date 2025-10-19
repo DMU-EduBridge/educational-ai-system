@@ -1,12 +1,9 @@
-"""
-FastAPI Backend for Educational AI System
-"""
 import sys
 import os
 from pathlib import Path
 from typing import List, Dict, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -21,15 +18,16 @@ try:
     from src.main import RAGPipeline
     from src.utils.logger import get_logger
     from src.analysis.student_analyzer import StudentAnalyzer
+    from src.chatbot.tutor import ChatbotTutor
 except ImportError as e:
     print(f"Error importing from ai-services: {e}")
     sys.exit(1)
 
 # FastAPI 애플리케이션 초기화
 app = FastAPI(
-    title="Educational AI System - Question Generation API",
-    description="AI를 활용하여 교육용 문제를 생성하는 API입니다.",
-    version="1.0.0",
+    title="Educational AI System - API",
+    description="AI를 활용하여 교육용 문제를 생성하고, 학생 맞춤형 학습을 제공하는 API입니다.",
+    version="1.1.0",
 )
 
 # CORS 설정
@@ -60,7 +58,7 @@ def startup_event():
         pipeline = None
         analyzer = None
 
-# 요청 본문을 위한 Pydantic 모델
+# --- Pydantic 모델 --- #
 class QuestionRequest(BaseModel):
     subject: str = Field(..., description="문제 과목", example="수학")
     unit: str = Field(..., description="세부 단원", example="일차함수")
@@ -70,6 +68,7 @@ class QuestionRequest(BaseModel):
 class AnalysisRequest(BaseModel):
     user_id: str = Field(..., description="분석할 학생의 ID", example="user_1234")
 
+# --- REST API 엔드포인트 --- #
 @app.get("/", summary="API 상태 확인")
 def read_root():
     """API 서버의 기본 상태를 확인하는 엔드포인트입니다."""
@@ -80,57 +79,63 @@ def read_root():
 
 @app.post("/generate-question", summary="새로운 문제 생성")
 async def generate_question_endpoint(request: QuestionRequest) -> List[Dict[str, Any]]:
-    """
-    주어진 과목, 단원, 난이도에 따라 하나 이상의 새로운 문제를 생성합니다.
-    """
     if not pipeline:
         raise HTTPException(status_code=503, detail="RAG Pipeline is not available.")
-
     try:
-        logger.info(f"Received request to generate {request.count} question(s) for {request.subject} - {request.unit}")
-        
-        questions = pipeline.generate_questions(
+        return pipeline.generate_questions(
             subject=request.subject,
             unit=request.unit,
             difficulty=request.difficulty,
             count=request.count,
         )
-        
-        if not questions:
-            raise HTTPException(status_code=404, detail="Could not generate any questions for the given topic.")
-            
-        logger.info(f"Successfully generated {len(questions)} question(s).")
-        return questions
-
-    except ValueError as ve:
-        logger.warning(f"Value error during question generation: {ve}")
-        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"An unexpected error occurred during question generation: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred while generating questions.")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 @app.post("/analyze-student-performance", summary="학생 학습 성과 분석")
-async def analyze_student_performance_endpoint(request: AnalysisRequest) -> Dict[str, str]:
-    """
-    특정 학생의 문제 풀이 로그를 분석하여 종합적인 학습 리포트를 생성합니다.
-    """
+async def analyze_student_performance_endpoint(request: AnalysisRequest) -> Dict[str, Any]:
     if not analyzer:
         raise HTTPException(status_code=503, detail="Student Analyzer is not available.")
-
     try:
-        logger.info(f"Received request to analyze performance for user {request.user_id}")
-        
         report = analyzer.analyze(request.user_id)
-        
-        if "해당 사용자에 대한 학습 로그를 찾을 수 없습니다." in report or "error" in report:
-            raise HTTPException(status_code=404, detail=report)
-
-        logger.info(f"Successfully generated analysis report for user {request.user_id}.")
-        return {"report": report}
-
+        if "error" in report:
+            raise HTTPException(status_code=404, detail=report["error"])
+        return report
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred while analyzing performance.")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+# --- WebSocket 엔드포인트 --- #
+@app.websocket("/ws/chat/{user_id}")
+async def websocket_chat_endpoint(websocket: WebSocket, user_id: str):
+    await websocket.accept()
+    
+    if not pipeline:
+        await websocket.close(code=1011, reason="Core services are not available.")
+        return
+
+    tutor = ChatbotTutor(user_id, pipeline.llm_client)
+    
+    try:
+        # 세션 시작 및 첫 메시지 전송
+        initial_message, history = tutor.start_session()
+        await websocket.send_text(initial_message)
+
+        # 대화 루프
+        while True:
+            user_message = await websocket.receive_text()
+            history.append({"role": "user", "content": user_message})
+            
+            ai_response = tutor.get_response(user_message, history)
+            history.append({"role": "assistant", "content": ai_response})
+            
+            await websocket.send_text(ai_response)
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for user: {user_id}")
+    except Exception as e:
+        logger.error(f"Error in WebSocket chat for user {user_id}: {e}")
+        await websocket.close(code=1011, reason="An internal error occurred.")
 
 # 서버 실행을 위한 uvicorn 명령어 (터미널에서 실행):
 # uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
