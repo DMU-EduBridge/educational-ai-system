@@ -530,7 +530,7 @@ def analyze_student(ctx, user_id):
 
         click.echo("✅ 학생 분석 리포트 생성 완료!")
         click.echo("=" * 50)
-        click.echo(report)
+        click.echo(json.dumps(report, indent=2, ensure_ascii=False))
         click.echo("=" * 50)
 
     except Exception as e:

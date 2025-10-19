@@ -39,7 +39,7 @@ class StudentAnalyzer:
             p.subject,
             p.unit,
             p.difficulty
-        FROM problem_logs pl
+        FROM attempts pl
         JOIN problems p ON pl.problemId = p.id
         WHERE pl.userId = ?;
         """
@@ -85,69 +85,70 @@ class StudentAnalyzer:
 
     def _generate_prompt(self, summary: Dict[str, Any]) -> str:
         """
-        LLM에 보낼 프롬프트를 생성합니다.
-
-        Args:
-            summary: 요약된 통계 딕셔너리.
-
-        Returns:
-            생성된 프롬프트 문자열.
+        LLM에 보낼 프롬프트를 생성합니다. JSON 출력을 요청합니다.
         """
-        # TODO: 프롬프트를 더 정교하게 다듬어야 합니다.
         prompt = f"""
-        당신은 전문 교육 컨설턴트입니다. 아래 학생의 학습 데이터를 분석하여 종합적인 학습 리포트를 작성해주세요.
+        You are an expert educational consultant. Analyze the student's learning data below and create a comprehensive learning report.
+        Your output MUST be a single valid JSON object with two keys: "weakest_unit" and "report_text".
+        - "weakest_unit": A string containing the name of the single unit the student is weakest in.
+        - "report_text": A string containing the full, human-readable report in Korean.
 
-        **학습 데이터 요약:**
-        - 총 푼 문제 수: {summary.get('total_problems_solved')}
-        - 전체 정답률: {summary.get('overall_correct_rate')}
-        - 평균 문제 풀이 시간: {summary.get('average_time_spent_seconds')}초
+        **Learning Data Summary:**
+        - Total problems solved: {summary.get('total_problems_solved')}
+        - Overall correct rate: {summary.get('overall_correct_rate')}
+        - Average time spent per problem: {summary.get('average_time_spent_seconds')} seconds
 
-        **과목별 분석:**
+        **Performance by Subject:**
         {summary.get('performance_by_subject')}
 
-        **단원별 분석:**
+        **Performance by Unit:**
         {summary.get('performance_by_unit')}
 
-        **난이도별 분석:**
+        **Performance by Difficulty:**
         {summary.get('performance_by_difficulty')}
 
-        **리포트 작성 가이드:**
-        1.  **총평**: 학생의 현재 학습 상태에 대한 전반적인 평가를 작성해주세요.
-        2.  **강점**: 어떤 과목이나 단원에서 강점을 보이는지 구체적인 데이터를 근거로 칭찬해주세요.
-        3.  **약점**: 어떤 과목이나 단원에서 개선이 필요한지 구체적인 데이터를 근거로 지적해주세요. 특히 정답률이 낮은 단원을 중심으로 분석해주세요.
-        4.  **학습 추천**: 약점을 보완하고 강점을 유지하기 위한 구체적인 학습 전략이나 추가 학습 자료를 추천해주세요.
-        
-        위 가이드에 따라, 학생이 자신의 학습 상태를 명확히 이해하고 다음 학습 계획을 세울 수 있도록 친절하고 상세하게 리포트를 작성해주세요.
+        **Report Generation Guide (for the "report_text" field):**
+        1.  **Overall Assessment**: Write a general evaluation of the student's current learning status.
+        2.  **Strengths**: Based on the data, praise the student for subjects or units where they show strength.
+        3.  **Weaknesses**: Based on the data, point out which subjects or units need improvement. Focus on the units with the lowest correct rate.
+        4.  **Recommendations**: Recommend specific learning strategies or additional materials to address weaknesses and maintain strengths.
+
+        Based on the guide above, write a kind and detailed report in the "report_text" field so the student can clearly understand their status and plan their next steps.
+        Remember to identify the single weakest unit for the "weakest_unit" field.
         """
         return prompt
 
-    def analyze(self, user_id: str) -> str:
+    def analyze(self, user_id: str) -> Dict[str, Any]:
         """
-        학생의 학습 로그를 분석하여 최종 리포트를 생성합니다.
-
-        Args:
-            user_id: 분석할 학생의 ID.
-
-        Returns:
-            LLM이 생성한 분석 리포트.
+        학생의 학습 로그를 분석하여 최종 리포트를 JSON 형식으로 생성합니다.
         """
         logs_df = self._fetch_logs(user_id)
         if logs_df.empty:
-            return "해당 사용자에 대한 학습 로그를 찾을 수 없습니다."
-            
+            return {"error": "해당 사용자에 대한 학습 로그를 찾을 수 없습니다."}
+
         summary = self._summarize_logs(logs_df)
         if "error" in summary:
-            return summary["error"]
-            
+            return summary
+
         prompt = self._generate_prompt(summary)
-        
+
         self.logger.info(f"Generating analysis report for user {user_id}...")
-        
+
         try:
-            # LLMClient를 사용하여 리포트 생성
-            report = self.llm_client.generate_response(prompt)
-            self.logger.info(f"Successfully generated report for user {user_id}.")
-            return report
+            # LLMClient를 사용하여 구조화된 리포트 생성
+            structured_report = self.llm_client.generate_structured_response(prompt, response_format="json")
+            
+            # 최종 결과 조합
+            final_output = {
+                "report_text": structured_report.get("report_text", "리포트 텍스트를 생성하지 못했습니다."),
+                "analysis_data": {
+                    "weakest_unit": structured_report.get("weakest_unit", "취약 단원을 식별하지 못했습니다."),
+                    "performance_summary": summary
+                }
+            }
+            
+            self.logger.info(f"Successfully generated structured report for user {user_id}.")
+            return final_output
         except Exception as e:
-            self.logger.error(f"Error generating report: {e}")
-            return "리포트 생성 중 오류가 발생했습니다."
+            self.logger.error(f"Error generating structured report: {e}")
+            return {{"error": "리포트 생성 중 오류가 발생했습니다."}}
