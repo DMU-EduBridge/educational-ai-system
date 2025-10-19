@@ -107,14 +107,28 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 - **POST** `/analyze-student-performance`
 - **설명**: 특정 학생의 문제 풀이 로그를 분석하여 구조화된 종합 리포트를 생성합니다.
+
+#### 챗봇 메시지 전송 (REST)
+
+- **POST** `/chat/message`
+- **설명**: 챗봇과 단일 메시지를 주고받습니다. 클라이언트가 대화 기록을 관리해야 합니다.
+- **요청 본문**:
+  ```json
+  {
+    "user_id": "user_1234",
+    "user_message": "개념을 다시 설명해줄래?",
+    "history": [
+      { "role": "assistant", "content": "안녕하세요! ..." },
+      { "role": "user", "content": "문제를 풀어볼게." },
+      { "role": "assistant", "content": "네, 좋습니다. 다음 문제입니다..." }
+    ]
+  }
+  ```
 - **성공 응답 (200 OK)**:
   ```json
   {
-    "report_text": "학생 user_1234에 대한 종합 분석 리포트...",
-    "analysis_data": {
-      "weakest_unit": "일차함수",
-      "performance_summary": { ... }
-    }
+    "ai_response": "네, 개념을 다시 설명해 드릴게요...",
+    "updated_history": [ ... ]
   }
   ```
 
