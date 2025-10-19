@@ -68,6 +68,15 @@ class QuestionRequest(BaseModel):
 class AnalysisRequest(BaseModel):
     user_id: str = Field(..., description="분석할 학생의 ID", example="user_1234")
 
+class ChatMessage(BaseModel):
+    user_id: str = Field(..., description="학생의 ID", example="user_1234")
+    user_message: str = Field(..., description="사용자의 메시지", example="개념을 설명해줄래?")
+    history: List[Dict[str, str]] = Field([], description="이전 대화 기록")
+
+class ChatResponse(BaseModel):
+    ai_response: str
+    updated_history: List[Dict[str, str]]
+
 # --- REST API 엔드포인트 --- #
 @app.get("/", summary="API 상태 확인")
 def read_root():
@@ -104,6 +113,33 @@ async def analyze_student_performance_endpoint(request: AnalysisRequest) -> Dict
     except Exception as e:
         logger.error(f"An unexpected error occurred during analysis: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+@app.post("/chat/message", summary="챗봇과 메시지 주고받기 (REST)")
+async def chat_message_endpoint(request: ChatMessage) -> ChatResponse:
+    if not pipeline:
+        raise HTTPException(status_code=503, detail="Core services are not available.")
+    
+    try:
+        tutor = ChatbotTutor(request.user_id, pipeline.llm_client)
+        
+        # 컨텍스트 로드 확인
+        if not tutor.analysis_context:
+            raise HTTPException(status_code=404, detail=f"Could not load analysis context for user {request.user_id}. Please generate a report first.")
+
+        # 대화 기록에 사용자 메시지 추가
+        new_history = request.history + [{"role": "user", "content": request.user_message}]
+
+        # 튜터 응답 생성
+        ai_response = tutor.get_response(request.user_message, new_history)
+        
+        # 전체 대화 기록 업데이트
+        new_history.append({"role": "assistant", "content": ai_response})
+        
+        return ChatResponse(ai_response=ai_response, updated_history=new_history)
+
+    except Exception as e:
+        logger.error(f"Error in REST chat for user {request.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred during chat.")
 
 # --- WebSocket 엔드포인트 --- #
 @app.websocket("/ws/chat/{user_id}")

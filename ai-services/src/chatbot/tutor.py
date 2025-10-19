@@ -22,6 +22,7 @@ class ChatbotTutor:
         self.logger = get_logger(__name__)
         self.student_analyzer = StudentAnalyzer(llm_client)
         self.analysis_context = None
+        self._load_analysis_context()
 
     def _load_analysis_context(self):
         """학생의 분석 리포트를 로드하여 대화의 컨텍스트를 설정합니다."""
@@ -42,8 +43,6 @@ class ChatbotTutor:
         Returns:
             (인사 메시지, 빈 대화 기록)
         """
-        self._load_analysis_context()
-        
         if not self.analysis_context:
             return "죄송합니다, 학생 데이터를 불러오는 데 실패했습니다. 먼저 학습 기록을 만들어주세요.", []
 
