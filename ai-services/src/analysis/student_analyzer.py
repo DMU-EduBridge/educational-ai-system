@@ -18,20 +18,19 @@ class StudentAnalyzer:
         self.llm_client = llm_client
         self.logger = get_logger(__name__)
 
-    def _fetch_logs(self, user_id: str) -> pd.DataFrame:
+    def _fetch_logs(self, user_id: str, time_window_days: int = None) -> pd.DataFrame:
         """
         특정 사용자의 문제 풀이 로그를 데이터베이스에서 가져옵니다.
-        
+
         Args:
             user_id: 분석할 학생의 ID.
+            time_window_days: 로그를 가져올 최근 기간(일). None이면 전체 기간.
 
         Returns:
             로그 데이터가 담긴 pandas DataFrame.
         """
-        self.logger.info(f"Fetching logs for user: {user_id}")
+        self.logger.info(f"Fetching logs for user: {user_id} (last {time_window_days or 'all'} days)")
         
-        # TODO: SQL 쿼리를 구체화해야 합니다.
-        # problem_logs 테이블과 problems 테이블을 조인하여 과목, 단원, 난이도 정보를 함께 가져옵니다.
         query = """
         SELECT
             pl.isCorrect,
@@ -41,12 +40,17 @@ class StudentAnalyzer:
             p.difficulty
         FROM attempts pl
         JOIN problems p ON pl.problemId = p.id
-        WHERE pl.userId = ?;
+        WHERE pl.userId = ?
         """
-        
+        params = [user_id]
+
+        if time_window_days:
+            query += " AND pl.updatedAt >= date('now', ?);"
+            params.append(f'-{time_window_days} days')
+
         try:
             with get_db_connection() as conn:
-                df = pd.read_sql(query, conn, params=(user_id,))
+                df = pd.read_sql(query, conn, params=params)
             self.logger.info(f"Fetched {len(df)} logs for user {user_id}.")
             return df
         except Exception as e:
@@ -64,7 +68,7 @@ class StudentAnalyzer:
             분석된 통계가 담긴 딕셔너리.
         """
         if logs_df.empty:
-            return {"error": "No logs found for this user."}
+            return {"error": "No logs found for this user for the given time period."}
 
         total_problems = len(logs_df)
         correct_answers = logs_df['isCorrect'].sum()
@@ -83,66 +87,62 @@ class StudentAnalyzer:
         self.logger.info(f"Log summary created for user.")
         return summary
 
-    def _generate_prompt(self, summary: Dict[str, Any]) -> str:
+    def _generate_prompt(self, summary: Dict[str, Any], is_real_time: bool = False) -> str:
         """
         LLM에 보낼 프롬프트를 생성합니다. JSON 출력을 요청합니다.
         """
+        if is_real_time:
+            report_intro = "Analyze the student's RECENT learning data below and create a brief, real-time analysis."
+            report_guide = "Briefly summarize the student's performance on the problems they solved recently."
+        else:
+            report_intro = "Analyze the student's learning data below and create a comprehensive learning report."
+            report_guide = """
+            1.  **Overall Assessment**: Write a general evaluation of the student's current learning status.
+            2.  **Strengths**: Based on the data, praise the student for subjects or units where they show strength.
+            3.  **Weaknesses**: Based on the data, point out which subjects or units need improvement. Focus on the units with the lowest correct rate.
+            4.  **Recommendations**: Recommend specific learning strategies or additional materials to address weaknesses and maintain strengths.
+            """
+
         prompt = f"""
-        You are an expert educational consultant. Analyze the student's learning data below and create a comprehensive learning report.
+        You are an expert educational consultant. {report_intro}
         Your output MUST be a single valid JSON object with two keys: "weakest_unit" and "report_text".
-        - "weakest_unit": A string containing the name of the single unit the student is weakest in.
-        - "report_text": A string containing the full, human-readable report in Korean.
+        - "weakest_unit": A string containing the name of the single unit the student is weakest in. If there are no clear weaknesses, this can be null.
+        - "report_text": A string containing the analysis report in Korean.
 
         **Learning Data Summary:**
-        - Total problems solved: {summary.get('total_problems_solved')}
-        - Overall correct rate: {summary.get('overall_correct_rate')}
-        - Average time spent per problem: {summary.get('average_time_spent_seconds')} seconds
-
-        **Performance by Subject:**
-        {summary.get('performance_by_subject')}
-
-        **Performance by Unit:**
-        {summary.get('performance_by_unit')}
-
-        **Performance by Difficulty:**
-        {summary.get('performance_by_difficulty')}
+        {summary}
 
         **Report Generation Guide (for the "report_text" field):**
-        1.  **Overall Assessment**: Write a general evaluation of the student's current learning status.
-        2.  **Strengths**: Based on the data, praise the student for subjects or units where they show strength.
-        3.  **Weaknesses**: Based on the data, point out which subjects or units need improvement. Focus on the units with the lowest correct rate.
-        4.  **Recommendations**: Recommend specific learning strategies or additional materials to address weaknesses and maintain strengths.
+        {report_guide}
 
-        Based on the guide above, write a kind and detailed report in the "report_text" field so the student can clearly understand their status and plan their next steps.
-        Remember to identify the single weakest unit for the "weakest_unit" field.
+        Based on the guide above, write a kind and detailed report in the "report_text" field.
         """
         return prompt
 
-    def analyze(self, user_id: str) -> Dict[str, Any]:
+    def analyze(self, user_id: str, time_window_days: int = None) -> Dict[str, Any]:
         """
         학생의 학습 로그를 분석하여 최종 리포트를 JSON 형식으로 생성합니다.
         """
-        logs_df = self._fetch_logs(user_id)
+        logs_df = self._fetch_logs(user_id, time_window_days)
         if logs_df.empty:
-            return {"error": "해당 사용자에 대한 학습 로그를 찾을 수 없습니다."}
+            return {"error": "해당 기간 동안 사용자의 학습 로그를 찾을 수 없습니다."}
 
         summary = self._summarize_logs(logs_df)
         if "error" in summary:
             return summary
 
-        prompt = self._generate_prompt(summary)
+        is_real_time = time_window_days is not None
+        prompt = self._generate_prompt(summary, is_real_time=is_real_time)
 
         self.logger.info(f"Generating analysis report for user {user_id}...")
 
         try:
-            # LLMClient를 사용하여 구조화된 리포트 생성
             structured_report = self.llm_client.generate_structured_response(prompt, response_format="json")
             
-            # 최종 결과 조합
             final_output = {
                 "report_text": structured_report.get("report_text", "리포트 텍스트를 생성하지 못했습니다."),
                 "analysis_data": {
-                    "weakest_unit": structured_report.get("weakest_unit", "취약 단원을 식별하지 못했습니다."),
+                    "weakest_unit": structured_report.get("weakest_unit"),
                     "performance_summary": summary
                 }
             }
