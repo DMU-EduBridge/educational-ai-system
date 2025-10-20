@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ try:
     # ai-services의 RAGPipeline 임포트
     from src.main import RAGPipeline
     from src.utils.logger import get_logger
+    from src.chatbot.tutor import ChatbotTutor
 except ImportError as e:
     print(f"Error importing from ai-services: {e}")
     sys.exit(1)
@@ -24,7 +25,7 @@ except ImportError as e:
 # FastAPI 애플리케이션 초기화
 app = FastAPI(
     title="Educational AI System - API",
-    description="AI를 활용하여 교육용 문제를 생성하는 API입니다.",
+    description="AI를 활용하여 교육용 문제를 생성하고, 학생 맞춤형 학습을 제공하는 API입니다.",
     version="1.2.0",
 )
 
@@ -60,6 +61,15 @@ class QuestionRequest(BaseModel):
     difficulty: str = Field("medium", description="문제 난이도", example="medium")
     count: int = Field(1, gt=0, le=10, description="생성할 문제 수")
 
+class ChatMessage(BaseModel):
+    user_id: str = Field(..., description="학생의 ID", example="user_1234")
+    user_message: str = Field(..., description="사용자의 메시지", example="개념을 설명해줄래?")
+    history: List[Dict[str, str]] = Field([], description="이전 대화 기록")
+
+class ChatResponse(BaseModel):
+    ai_response: str
+    updated_history: List[Dict[str, str]]
+
 # --- REST API 엔드포인트 --- #
 @app.get("/", summary="API 상태 확인")
 def read_root():
@@ -83,6 +93,62 @@ async def generate_question_endpoint(request: QuestionRequest) -> List[Dict[str,
     except Exception as e:
         logger.error(f"An unexpected error occurred during question generation: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+@app.post("/chat/message", summary="챗봇과 메시지 주고받기 (REST)")
+async def chat_message_endpoint(request: ChatMessage) -> ChatResponse:
+    if not pipeline:
+        raise HTTPException(status_code=503, detail="Core services are not available.")
+    
+    try:
+        tutor = ChatbotTutor(request.user_id, pipeline.llm_client)
+        
+        if not tutor.analysis_context:
+            raise HTTPException(status_code=404, detail=f"No report found for user {request.user_id}. A weekly report must be generated first.")
+
+        new_history = request.history + [{"role": "user", "content": request.user_message}]
+        ai_response = tutor.get_response(request.user_message, new_history)
+        new_history.append({"role": "assistant", "content": ai_response})
+        
+        return ChatResponse(ai_response=ai_response, updated_history=new_history)
+
+    except Exception as e:
+        logger.error(f"Error in REST chat for user {request.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred during chat.")
+
+# --- WebSocket 엔드포인트 --- #
+@app.websocket("/ws/chat/{user_id}")
+async def websocket_chat_endpoint(websocket: WebSocket, user_id: str):
+    await websocket.accept()
+    
+    if not pipeline:
+        await websocket.close(code=1011, reason="Core services are not available.")
+        return
+
+    try:
+        tutor = ChatbotTutor(user_id, pipeline.llm_client)
+        initial_message, history = tutor.start_session()
+        
+        if not tutor.analysis_context:
+            await websocket.send_text(f"No report found for user {user_id}. Please wait for the weekly report.")
+            await websocket.close()
+            return
+
+        await websocket.send_text(initial_message)
+
+        while True:
+            user_message = await websocket.receive_text()
+            history.append({"role": "user", "content": user_message})
+            
+            ai_response = tutor.get_response(user_message, history)
+            history.append({"role": "assistant", "content": ai_response})
+            
+            await websocket.send_text(ai_response)
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for user: {user_id}")
+    except Exception as e:
+        logger.error(f"Error in WebSocket chat for user {user_id}: {e}")
+        await websocket.close(code=1011, reason="An internal error occurred.")
 
 # 서버 실행을 위한 uvicorn 명령어 (터미널에서 실행):
 # uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000

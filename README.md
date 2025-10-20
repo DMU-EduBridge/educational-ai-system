@@ -84,9 +84,73 @@ Airflow가 실행되면 브라우저에서 `http://localhost:8080` 로 접속하
 
 ## 📚 API 엔드포인트
 
-현재 백엔드는 문제 생성 API만 제공합니다.
+### REST API
+
+#### 문제 생성
 
 - **POST** `/generate-question`
 - **설명**: 주어진 조건에 따라 새로운 문제를 생성합니다.
+
+#### 챗봇 메시지 전송 (REST)
+
+- **POST** `/chat/message`
+- **설명**: 챗봇과 단일 메시지를 주고받습니다. 클라이언트가 대화 기록을 관리해야 합니다.
+- **요청 본문**:
+  ```json
+  {
+    "user_id": "user_1234",
+    "user_message": "개념을 다시 설명해줄래?",
+    "history": [
+      { "role": "assistant", "content": "안녕하세요! ..." }
+    ]
+  }
+  ```
+- **성공 응답 (200 OK)**:
+  ```json
+  {
+    "ai_response": "네, 개념을 다시 설명해 드릴게요...",
+    "updated_history": [ ... ]
+  }
+  ```
+
+### WebSocket API
+
+#### 학습 챗봇
+
+- **WebSocket** `/ws/chat/{user_id}`
+- **설명**: 특정 학생을 위한 실시간 대화형 학습 챗봇 세션을 시작합니다. 챗봇은 DB에 저장된 가장 최신 주간 리포트를 기반으로 대화를 시작합니다.
+
+## 💬 챗봇 사용법 (테스트용)
+
+백엔드 서버가 실행 중인 상태에서, 아래의 Python 코드를 사용하여 챗봇과 상호작용할 수 있습니다. `websockets` 라이브러리가 설치되어 있어야 합니다 (`pip install websockets`).
+
+```python
+import asyncio
+import websockets
+
+async def chat_with_tutor(user_id: str):
+    uri = f"ws://localhost:8000/ws/chat/{user_id}"
+    async with websockets.connect(uri) as websocket:
+        # 첫 인사 메시지 수신
+        initial_message = await websocket.recv()
+        print(f"AI 튜터: {initial_message}")
+
+        while True:
+            # 사용자 입력
+            user_input = input("나: ")
+            if user_input.lower() == 'exit':
+                print("대화를 종료합니다.")
+                break
+
+            await websocket.send(user_input)
+
+            # 튜터 응답 수신
+            tutor_response = await websocket.recv()
+            print(f"AI 튜터: {tutor_response}")
+
+if __name__ == "__main__":
+    # 'user_1234'를 실제 테스트하고 싶은 학생 ID로 변경하세요.
+    asyncio.run(chat_with_tutor('user_1234'))
+```
 
 (이후 내용은 이전과 동일)
