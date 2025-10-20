@@ -26,7 +26,7 @@ except ImportError as e:
 app = FastAPI(
     title="Educational AI System - API",
     description="AI를 활용하여 교육용 문제를 생성하고, 학생 맞춤형 학습을 제공하는 API입니다.",
-    version="1.2.0",
+    version="1.3.0",
 )
 
 # CORS 설정
@@ -38,9 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 로거 및 RAG 파이프라인 초기화
+# 로거, 파이프라인, 및 대화 기록 저장소 초기화
 logger = get_logger(__name__)
 pipeline = None
+chat_histories: Dict[str, List[Dict[str, str]]] = {}
 
 @app.on_event("startup")
 def startup_event():
@@ -61,14 +62,12 @@ class QuestionRequest(BaseModel):
     difficulty: str = Field("medium", description="문제 난이도", example="medium")
     count: int = Field(1, gt=0, le=10, description="생성할 문제 수")
 
-class ChatMessage(BaseModel):
+class ChatRequest(BaseModel):
     user_id: str = Field(..., description="학생의 ID", example="user_1234")
     user_message: str = Field(..., description="사용자의 메시지", example="개념을 설명해줄래?")
-    history: List[Dict[str, str]] = Field([], description="이전 대화 기록")
 
 class ChatResponse(BaseModel):
     ai_response: str
-    updated_history: List[Dict[str, str]]
 
 # --- REST API 엔드포인트 --- #
 @app.get("/", summary="API 상태 확인")
@@ -95,21 +94,29 @@ async def generate_question_endpoint(request: QuestionRequest) -> List[Dict[str,
         raise HTTPException(status_code=500, detail="An internal error occurred.")
 
 @app.post("/chat/message", summary="챗봇과 메시지 주고받기 (REST)")
-async def chat_message_endpoint(request: ChatMessage) -> ChatResponse:
+async def chat_message_endpoint(request: ChatRequest) -> ChatResponse:
     if not pipeline:
         raise HTTPException(status_code=503, detail="Core services are not available.")
     
     try:
         tutor = ChatbotTutor(request.user_id, pipeline.llm_client)
-        
-        if not tutor.analysis_context:
-            raise HTTPException(status_code=404, detail=f"No report found for user {request.user_id}. A weekly report must be generated first.")
+        if not tutor.weekly_report_context:
+            raise HTTPException(status_code=404, detail=f"No report found for user {request.user_id}.")
 
-        new_history = request.history + [{"role": "user", "content": request.user_message}]
-        ai_response = tutor.get_response(request.user_message, new_history)
-        new_history.append({"role": "assistant", "content": ai_response})
+        # 서버에 저장된 히스토리 가져오기 또는 초기화
+        history = chat_histories.get(request.user_id, [])
+        if not history:
+            _, initial_history = tutor.start_session()
+            history.extend(initial_history)
+
+        history.append({"role": "user", "content": request.user_message})
+        ai_response = tutor.get_response(request.user_message, history)
+        history.append({"role": "assistant", "content": ai_response})
         
-        return ChatResponse(ai_response=ai_response, updated_history=new_history)
+        # 업데이트된 히스토리 저장
+        chat_histories[request.user_id] = history
+        
+        return ChatResponse(ai_response=ai_response)
 
     except Exception as e:
         logger.error(f"Error in REST chat for user {request.user_id}: {e}")
@@ -126,15 +133,22 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: str):
 
     try:
         tutor = ChatbotTutor(user_id, pipeline.llm_client)
-        initial_message, history = tutor.start_session()
-        
-        if not tutor.analysis_context:
-            await websocket.send_text(f"No report found for user {user_id}. Please wait for the weekly report.")
-            await websocket.close()
-            return
+        history = chat_histories.get(user_id)
 
-        await websocket.send_text(initial_message)
+        # 세션 시작 및 첫 메시지 전송
+        if not history:
+            initial_message, new_history = tutor.start_session()
+            if not tutor.weekly_report_context:
+                 await websocket.send_text(initial_message) # 리포트 없다는 메시지
+                 await websocket.close()
+                 return
+            history = new_history
+            chat_histories[user_id] = history
+            await websocket.send_text(initial_message)
+        else:
+            await websocket.send_text("대화를 다시 시작합니다. 마지막으로 어떤 이야기를 했었죠?")
 
+        # 대화 루프
         while True:
             user_message = await websocket.receive_text()
             history.append({"role": "user", "content": user_message})
@@ -142,6 +156,7 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: str):
             ai_response = tutor.get_response(user_message, history)
             history.append({"role": "assistant", "content": ai_response})
             
+            chat_histories[user_id] = history # 매번 히스토리 업데이트
             await websocket.send_text(ai_response)
 
     except WebSocketDisconnect:
