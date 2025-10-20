@@ -1,5 +1,6 @@
 import pandas as pd
-from typing import List, Dict, Any
+from typing import Dict, Any
+from sqlalchemy import text
 
 from ..utils.db import get_db_connection
 from ..models.llm_client import LLMClient
@@ -21,7 +22,7 @@ class StudentAnalyzer:
     def _fetch_logs(self, user_id: str) -> pd.DataFrame:
         """
         특정 사용자의 문제 풀이 로그를 데이터베이스에서 가져옵니다.
-        
+
         Args:
             user_id: 분석할 학생의 ID.
 
@@ -29,29 +30,61 @@ class StudentAnalyzer:
             로그 데이터가 담긴 pandas DataFrame.
         """
         self.logger.info(f"Fetching logs for user: {user_id}")
-        
-        # TODO: SQL 쿼리를 구체화해야 합니다.
-        # problem_logs 테이블과 problems 테이블을 조인하여 과목, 단원, 난이도 정보를 함께 가져옵니다.
+
         query = """
         SELECT
-            pl.isCorrect,
-            pl.timeSpent,
+            pl."isCorrect" AS isCorrect,
+            pl."timeSpent" AS timeSpent,
             p.subject,
             p.unit,
             p.difficulty
         FROM attempts pl
-        JOIN problems p ON pl.problemId = p.id
-        WHERE pl.userId = ?;
+        JOIN problems p ON pl."problemId" = p.id
+        WHERE pl."userId" = :user_id;
         """
         
         try:
             with get_db_connection() as conn:
-                df = pd.read_sql(query, conn, params=(user_id,))
+                df = pd.read_sql(text(query), conn, params={"user_id": user_id})
+
+            # 드라이버/스키마 차이를 흡수하기 위해 컬럼명을 표준 형태로 정규화
+            df = self._normalize_logs_df(df)
+            if df.empty:
+                return df
+
             self.logger.info(f"Fetched {len(df)} logs for user {user_id}.")
             return df
         except Exception as e:
-            self.logger.error(f"Error fetching logs: {e}")
+            self.logger.error(f"로그 조회 중 오류: {e}")
             return pd.DataFrame()
+
+    def _normalize_logs_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """필수 컬럼명이 존재하도록 정규화합니다."""
+        if df.empty:
+            return df
+
+        normalized_cols = {c.lower(): c for c in df.columns}
+        rename_map: Dict[str, str] = {}
+
+        if 'iscorrect' in normalized_cols:
+            rename_map[normalized_cols['iscorrect']] = 'isCorrect'
+        if 'is_correct' in normalized_cols:
+            rename_map[normalized_cols['is_correct']] = 'isCorrect'
+        if 'timespent' in normalized_cols:
+            rename_map[normalized_cols['timespent']] = 'timeSpent'
+        if 'time_spent' in normalized_cols:
+            rename_map[normalized_cols['time_spent']] = 'timeSpent'
+
+        df = df.rename(columns=rename_map)
+
+        # 분석에 필요한 최소 컬럼 집합
+        required = {"isCorrect", "timeSpent", "subject", "unit", "difficulty"}
+        if not required.issubset(df.columns):
+            missing = required - set(df.columns)
+            self.logger.error(f"로그에서 필요한 컬럼 누락: {missing}")
+            return pd.DataFrame()
+
+        return df
 
     def _summarize_logs(self, logs_df: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -80,12 +113,12 @@ class StudentAnalyzer:
             "performance_by_difficulty": logs_df.groupby('difficulty')['isCorrect'].value_counts(normalize=True).unstack().fillna(0).to_dict(),
         }
         
-        self.logger.info(f"Log summary created for user.")
+        self.logger.info("사용자 로그 요약을 생성했습니다.")
         return summary
 
     def _generate_prompt(self, summary: Dict[str, Any]) -> str:
         """
-        LLM에 보낼 프롬프트를 생성합니다. JSON 출력을 요청합니다.
+        LLM에 보낼 프롬프트를 생성합니다. 출력은 JSON 형식이어야 합니다.
         """
         prompt = f"""
         You are an expert educational consultant. Analyze the student's learning data below and create a comprehensive learning report.
@@ -132,10 +165,10 @@ class StudentAnalyzer:
 
         prompt = self._generate_prompt(summary)
 
-        self.logger.info(f"Generating analysis report for user {user_id}...")
+        self.logger.info(f"사용자 {user_id}에 대한 분석 리포트를 생성합니다...")
 
         try:
-            # LLMClient를 사용하여 구조화된 리포트 생성
+            # LLMClient를 사용하여 구조화된 리포트를 생성
             structured_report = self.llm_client.generate_structured_response(prompt, response_format="json")
             
             # 최종 결과 조합
@@ -147,8 +180,8 @@ class StudentAnalyzer:
                 }
             }
             
-            self.logger.info(f"Successfully generated structured report for user {user_id}.")
+            self.logger.info(f"사용자 {user_id} 리포트 생성 완료")
             return final_output
         except Exception as e:
-            self.logger.error(f"Error generating structured report: {e}")
+            self.logger.error(f"리포트 생성 중 오류: {e}")
             return {{"error": "리포트 생성 중 오류가 발생했습니다."}}

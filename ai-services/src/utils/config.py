@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     chroma_db_path: str = Field(default="./data/vector_db", description="ChromaDB persist directory")
     chroma_collection_name: str = Field(default="textbook_embeddings", description="ChromaDB collection name")
 
-    # SQLite 설정
+    # 데이터베이스 설정
+    # 우선순위: DATABASE_URL(예: postgresql+psycopg://...) -> sqlite_db_path
+    database_url: Optional[str] = Field(default=None, description="SQLAlchemy database URL (e.g., Neon Postgres)")
     sqlite_db_path: str = Field(default="./data/student_logs.db", description="SQLite database file path")
 
     # 텍스트 처리 설정
