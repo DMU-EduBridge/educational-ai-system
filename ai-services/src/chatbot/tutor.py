@@ -1,13 +1,12 @@
 from typing import Dict, Any, List, Tuple
-import json
 
 from ..models.llm_client import LLMClient
-from ..utils.db import get_db_connection
+from ..analysis.student_analyzer import StudentAnalyzer
 from ..utils.logger import get_logger
 
 class ChatbotTutor:
     """
-    학생의 주간 리포트를 기반으로 대화형 학습을 제공하는 챗봇입니다.
+    학생의 실시간 문제 풀이 로그를 기반으로 대화형 학습을 제공하는 챗봇입니다.
     """
 
     def __init__(self, user_id: str, llm_client: LLMClient):
@@ -17,39 +16,20 @@ class ChatbotTutor:
         self.user_id = user_id
         self.llm_client = llm_client
         self.logger = get_logger(__name__)
+        self.student_analyzer = StudentAnalyzer(llm_client)
         self.analysis_context = None
-        self._load_latest_report_context()
+        self._load_analysis_context()
 
-    def _load_latest_report_context(self):
-        """가장 최근의 주간 리포트를 DB에서 로드하여 대화의 컨텍스트를 설정합니다."""
-        self.logger.info(f"Loading latest report context for user: {self.user_id}")
-        query = """
-        SELECT content, analysisData 
-        FROM teacher_reports 
-        WHERE json_extract(students, '$[0].id') = ?
-        ORDER BY createdAt DESC LIMIT 1;
-        """
+    def _load_analysis_context(self):
+        """학생의 최신 로그를 실시간으로 분석하여 대화의 컨텍스트를 설정합니다."""
+        self.logger.info(f"Loading real-time analysis context for user: {self.user_id}")
         try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                # In SQLite, we use `?` for parameters
-                cursor.execute(query, (self.user_id,))
-                report = cursor.fetchone()
-            
-            if report:
-                report_text, analysis_data_json = report
-                analysis_data = json.loads(analysis_data_json)
-                self.analysis_context = {
-                    "report_text": report_text,
-                    "analysis_data": analysis_data
-                }
-                self.logger.info(f"Successfully loaded report context for user {self.user_id}")
-            else:
-                self.logger.warning(f"No report found for user {self.user_id}")
+            self.analysis_context = self.student_analyzer.analyze(self.user_id)
+            if "error" in self.analysis_context:
+                self.logger.error(f"Could not load analysis context: {self.analysis_context['error']}")
                 self.analysis_context = None
-
         except Exception as e:
-            self.logger.error(f"An exception occurred while loading report context: {e}")
+            self.logger.error(f"An exception occurred while loading analysis context: {e}")
             self.analysis_context = None
 
     def start_session(self) -> Tuple[str, List[Dict[str, str]]]:
