@@ -2,12 +2,13 @@ from typing import Dict, Any, List, Tuple
 import json
 
 from ..models.llm_client import LLMClient
+from ..analysis.student_analyzer import StudentAnalyzer
 from ..utils.db import get_db_connection
 from ..utils.logger import get_logger
 
 class ChatbotTutor:
     """
-    학생의 주간 리포트를 기반으로 대화형 학습을 제공하는 챗봇입니다.
+    학생의 주간 리포트와 실시간 로그를 모두 활용하는 하이브리드 챗봇입니다.
     """
 
     def __init__(self, user_id: str, llm_client: LLMClient):
@@ -17,12 +18,13 @@ class ChatbotTutor:
         self.user_id = user_id
         self.llm_client = llm_client
         self.logger = get_logger(__name__)
-        self.analysis_context = None
-        self._load_latest_report_context()
+        self.student_analyzer = StudentAnalyzer(llm_client)
+        self.weekly_report_context = None
+        self._load_weekly_report_context()
 
-    def _load_latest_report_context(self):
-        """가장 최근의 주간 리포트를 DB에서 로드하여 대화의 컨텍스트를 설정합니다."""
-        self.logger.info(f"Loading latest report context for user: {self.user_id}")
+    def _load_weekly_report_context(self):
+        """가장 최근의 주간 리포트를 DB에서 로드하여 대화의 기본 컨텍스트를 설정합니다."""
+        self.logger.info(f"Loading weekly report context for user: {self.user_id}")
         query = """
         SELECT content, analysisData 
         FROM teacher_reports 
@@ -32,87 +34,85 @@ class ChatbotTutor:
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                # In SQLite, we use `?` for parameters
                 cursor.execute(query, (self.user_id,))
                 report = cursor.fetchone()
             
             if report:
                 report_text, analysis_data_json = report
-                analysis_data = json.loads(analysis_data_json)
-                self.analysis_context = {
+                self.weekly_report_context = {
                     "report_text": report_text,
-                    "analysis_data": analysis_data
+                    "analysis_data": json.loads(analysis_data_json)
                 }
-                self.logger.info(f"Successfully loaded report context for user {self.user_id}")
+                self.logger.info(f"Successfully loaded weekly report for user {self.user_id}")
             else:
-                self.logger.warning(f"No report found for user {self.user_id}")
-                self.analysis_context = None
-
+                self.logger.warning(f"No weekly report found for user {self.user_id}")
         except Exception as e:
-            self.logger.error(f"An exception occurred while loading report context: {e}")
-            self.analysis_context = None
+            self.logger.error(f"An exception occurred while loading weekly report: {e}")
+
+    def _get_real_time_analysis(self) -> Dict[str, Any]:
+        """최근 1일간의 로그를 실시간으로 분석합니다."""
+        self.logger.info(f"Performing real-time analysis for user: {self.user_id}")
+        return self.student_analyzer.analyze(self.user_id, time_window_days=1)
 
     def start_session(self) -> Tuple[str, List[Dict[str, str]]]:
         """
         챗봇 세션을 시작하고, 첫 번째 인사 메시지를 생성합니다.
-
-        Returns:
-            (인사 메시지, 빈 대화 기록)
         """
-        if not self.analysis_context:
-            return "죄송합니다, 학생 데이터를 불러오는 데 실패했습니다. 먼저 학습 기록을 만들어주세요.", []
+        if not self.weekly_report_context:
+            return "안녕하세요! 아직 분석된 주간 리포트가 없네요. 문제 풀이 기록이 쌓이면 제가 분석해서 알려드릴게요.", []
 
-        weakest_unit = self.analysis_context.get("analysis_data", {}).get("weakest_unit", "알 수 없는 단원")
+        weakest_unit = self.weekly_report_context.get("analysis_data", {}).get("weakest_unit", "- 아직 데이터가 부족해요 - ")
 
         initial_message = (
             f"안녕하세요, {self.user_id}님! AI 튜터입니다.\n"
-            f"학습 기록을 분석해보니, '{weakest_unit}' 단원에서 어려움을 겪고 계신 것 같아요.\n"
-            f"이 부분에 대해 함께 공부해볼까요? 원하신다면 개념 설명부터 시작하거나, 관련 문제를 풀어볼 수 있습니다."
+            f"지난 주 학습 내용을 분석해보니, '{weakest_unit}' 단원에서 어려움을 겪고 계신 것 같아요.\n"
+            f"이 부분에 대해 함께 공부해볼까요? 또는, 다른 궁금한 점이 있다면 편하게 질문해주세요."
         )
         
-        history = [
-            {"role": "assistant", "content": initial_message}
-        ]
-        
+        history = [{"role": "assistant", "content": initial_message}]
         return initial_message, history
 
     def get_response(self, user_message: str, history: List[Dict[str, str]]) -> str:
         """
         사용자 메시지와 대화 기록을 바탕으로 LLM의 답변을 생성합니다.
-
-        Args:
-            user_message: 사용자의 최신 메시지.
-            history: 현재까지의 대화 기록.
-
-        Returns:
-            챗봇의 답변 메시지.
         """
-        if not self.analysis_context:
-            return "죄송합니다, 학생 데이터가 로드되지 않아 답변할 수 없습니다."
+        real_time_keywords = ["오늘", "최근", "방금", "지금"]
+        use_real_time_analysis = any(keyword in user_message for keyword in real_time_keywords)
 
-        weakest_unit = self.analysis_context.get("analysis_data", {}).get("weakest_unit")
-        performance_summary = self.analysis_context.get("analysis_data", {}).get("performance_summary")
+        real_time_context_str = ""
+        if use_real_time_analysis:
+            real_time_analysis = self._get_real_time_analysis()
+            if "error" not in real_time_analysis:
+                real_time_context_str = f"\n**Student's Real-Time Performance (Today):**\n{real_time_analysis['analysis_data']['performance_summary']}"
+
+        base_context_str = "No weekly report available."
+        if self.weekly_report_context:
+            base_context_str = f"""
+            **Student's Weekly Report Summary:**
+            - Weakest Unit: {self.weekly_report_context.get("analysis_data", {}).get("weakest_unit")}
+            - Report: {self.weekly_report_context.get("report_text")} 
+            """
 
         prompt = f"""
-        You are a friendly and patient AI tutor. Your goal is to help a student understand their weak subject area.
+        당신은 친절하고 인내심 있는 AI 튜터입니다. 당신의 목표는 학생의 학습 성과 데이터를 기반으로 학습을 돕는 것입니다.
 
-        **Student's Context:**
-        - Weakest Unit: {weakest_unit}
-        - Performance Summary: {performance_summary}
+        **학생의 학습 맥락:**
+        {base_context_str}
+        {real_time_context_str}
 
-        **Your Task:**
-        - Have a conversation with the student to help them learn the material.
-        - You can both proactively teach concepts and answer the student's questions.
-        - Guide the student with Socratic questioning. Do not give away direct answers to problems immediately. Provide hints first.
-        - Keep your responses concise and easy to understand.
+        **당신의 임무:**
+        - 학생과 대화하며 학습을 도와주세요.
+        - 사용자가 최근 성과에 대해 물으면, 실시간 데이터를 사용하여 답변해주세요.
+        - 그 외의 경우에는 주간 리포트에서 파악된 취약점에 초점을 맞춰 대화하세요.
+        - 소크라테스식 질문법을 사용하여 학생을 지도하고, 문제에 대한 정답을 즉시 알려주지 마세요. 먼저 힌트를 제공하세요.
 
-        **Conversation History:**
+        **대화 기록:**
         {history}
 
-        **Student's Latest Message:**
+        **학생의 최근 메시지:**
         {user_message}
 
-        Generate the next response in the conversation.
+        이제 대화의 다음 응답을 한국어로 생성해주세요.
         """
 
         try:

@@ -94,22 +94,18 @@ Airflow가 실행되면 브라우저에서 `http://localhost:8080` 로 접속하
 #### 챗봇 메시지 전송 (REST)
 
 - **POST** `/chat/message`
-- **설명**: 챗봇과 단일 메시지를 주고받습니다. 클라이언트가 대화 기록을 관리해야 합니다.
+- **설명**: 챗봇과 단일 메시지를 주고받습니다. 서버가 대화 기록을 관리합니다.
 - **요청 본문**:
   ```json
   {
     "user_id": "user_1234",
-    "user_message": "개념을 다시 설명해줄래?",
-    "history": [
-      { "role": "assistant", "content": "안녕하세요! ..." }
-    ]
+    "user_message": "개념을 다시 설명해줄래?"
   }
   ```
 - **성공 응답 (200 OK)**:
   ```json
   {
-    "ai_response": "네, 개념을 다시 설명해 드릴게요...",
-    "updated_history": [ ... ]
+    "ai_response": "네, 개념을 다시 설명해 드릴게요..."
   }
   ```
 
