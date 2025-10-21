@@ -62,3 +62,14 @@ site/
 # uv
 .uv/
 # uv.lock은 의존성 관리를 위해 버전 관리에 포함
+
+# Gemini generated files
+GEMINI_MIGRATION.md
+MIGRATION_SUMMARY.md
+TEST_REPORT.md
+
+# Airflow generated files
+airflow/airflow.cfg
+airflow/airflow.db
+airflow/airflow.db-shm
+airflow/airflow.db-wal
