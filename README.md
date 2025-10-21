@@ -32,7 +32,7 @@ educational-ai-system/
 │   ├── logs/                 # Airflow 로그
 │   └── plugins/              # Airflow 플러그인
 ├── backend/                    # FastAPI 백엔드 모듈
-├── ai-services/                # 핵심 AI 서비스 모듈
+├── ai_services/                # 핵심 AI 서비스 모듈
 │   ├── src/
 │   │   ├── analysis/           # 학생 분석 모듈
 │   │   └── ...

@@ -22,8 +22,8 @@ env/
 **/logs/
 
 # Local databases
-/ai-services/data/vector_db/
-/db/
+/ai_services/data/vector_db/
+
 
 # IDE and editor files
 .vscode/
