@@ -1,20 +1,118 @@
 version: '3.8'
 
 services:
-  app:
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: educational_ai_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eduai2025}
+      POSTGRES_DB: ${POSTGRES_DB:-educational_ai}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - eduai_network
+
+  # FastAPI 백엔드 서버
+  backend:
     build: .
-    container_name: educational_ai_server
+    container_name: educational_ai_backend
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
+      - PYTHONPATH=/app
     volumes:
-      - ./data:/app/data
+      - ./ai-services/data:/app/ai-services/data
       - ./db:/app/db
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "/bin/bash", "/app/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    networks:
+      - eduai_network
+
+  # Airflow Webserver
+  airflow-webserver:
+    build: .
+    container_name: educational_ai_airflow_webserver
+    command: bash -c "/app/init_airflow.sh && /app/.venv/bin/airflow webserver --port 8080"
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW_HOME=/app/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-your_secret_key_here}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
+      - PYTHONPATH=/app
+    volumes:
+      - ./airflow:/app/airflow
+      - ./ai-services:/app/ai-services
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - eduai_network
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    build: .
+    container_name: educational_ai_airflow_scheduler
+    command: /app/.venv/bin/airflow scheduler
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW_HOME=/app/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
+      - PYTHONPATH=/app
+    volumes:
+      - ./airflow:/app/airflow
+      - ./ai-services:/app/ai-services
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - eduai_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  eduai_network:
+    driver: bridge
 

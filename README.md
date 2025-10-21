@@ -38,87 +38,194 @@
 
 ```
 educational-ai-system/
-├── airflow/
+├── airflow/                      # Apache Airflow 설정 및 DAG
 │   ├── dags/
-│   │   └── weekly_report_dag.py
-│   ├── logs/
-│   └── airflow.cfg
-├── backend/
-│   └── main.py
-├── ai_services/
+│   │   └── weekly_report_dag.py # 주간 리포트 생성 DAG
+│   ├── logs/                     # Airflow 로그
+│   └── airflow.cfg               # Airflow 설정 파일
+├── backend/                      # FastAPI 백엔드
+│   └── main.py                   # API 엔드포인트 정의
+├── ai-services/                  # AI 서비스 코어
 │   ├── src/
-│   │   ├── analysis/
-│   │   ├── models/
-│   │   └── ...
-│   └── tests/
-├── pyproject.toml
-└── README.md
+│   │   ├── analysis/            # 학생 분석 모듈
+│   │   ├── chatbot/             # AI 튜터 챗봇
+│   │   ├── evaluation/          # 문제 품질 평가
+│   │   ├── models/              # LLM 클라이언트 (Gemini)
+│   │   ├── rag/                 # RAG 파이프라인
+│   │   └── utils/               # 유틸리티 함수
+│   ├── data/                    # 데이터 저장소
+│   │   ├── vector_db/           # ChromaDB 벡터 DB
+│   │   ├── cache/               # 임베딩 캐시
+│   │   └── sample_textbooks/    # 샘플 교과서
+│   ├── tests/                   # 테스트 코드
+│   └── scripts/                 # 유틸리티 스크립트
+├── db/                          # SQLite 데이터베이스 (로컬)
+├── logs/                        # 애플리케이션 로그
+├── Dockerfile                   # Docker 이미지 정의
+├── docker-compose.yml           # 다중 컨테이너 구성
+├── pyproject.toml               # Python 의존성 관리
+└── .env                         # 환경 변수 설정
 ```
+
+### 주요 컴포넌트
+
+1. **RAG Pipeline**: 교과서 텍스트를 벡터화하고 의미 기반 검색
+2. **Question Generator**: Gemini API를 사용한 5지선다 문제 생성
+3. **Student Analyzer**: 학습 로그 분석 및 약점 파악
+4. **AI Chatbot**: 실시간 학습 지원 챗봇
+5. **Weekly Report Generator**: Airflow를 통한 자동화된 주간 리포트
 
 ## 🚀 빠른 시작
 
-### 1. 설치
+### 1. 사전 요구사항
 
-(이전과 동일)
+- Python 3.11+
+- Docker & Docker Compose (선택사항)
+- Google API Key ([발급 방법](https://makersuite.google.com/app/apikey))
 
-### 2. 환경 설정
+### 2. 설치
 
-(이전과 동일)
-
-### 3. 백엔드 서버 실행
-
-FastAPI 백엔드 서버는 문제 생성 API만 제공합니다.
+#### 방법 A: 로컬 설치 (권장 - 개발용)
 
 ```bash
-# uvicorn을 사용하여 서버 실행
+# 1. 저장소 클론
+git clone https://github.com/DMU-EduBridge/educational-ai-system.git
+cd educational-ai-system
+
+# 2. 가상 환경 생성 및 활성화
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 3. UV 패키지 매니저로 의존성 설치
+pip install uv
+uv sync
+
+# 4. 환경 변수 설정
+cp .env.example .env
+# .env 파일을 열어 GOOGLE_API_KEY를 설정하세요
+```
+
+#### 방법 B: Docker로 설치 (권장 - 프로덕션용)
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/DMU-EduBridge/educational-ai-system.git
+cd educational-ai-system
+
+# 2. 환경 변수 설정
+cp .env.example .env
+# .env 파일을 열어 GOOGLE_API_KEY와 데이터베이스 설정을 수정하세요
+
+# 3. Docker Compose로 모든 서비스 실행
+docker-compose up -d
+
+# 4. 로그 확인
+docker-compose logs -f
+```
+
+### 3. 환경 설정
+
+`.env` 파일에서 다음 필수 항목을 설정하세요:
+
+```bash
+# Google Gemini API Key (필수)
+GOOGLE_API_KEY=your_actual_api_key_here
+
+# 모델 설정
+GEMINI_MODEL=gemini-2.5-flash
+
+# 데이터베이스 URL
+DATABASE_URL=postgresql://eduai:eduai2025@localhost:5432/educational_ai
+```
+
+### 4. 서비스 실행
+
+#### 로컬 환경
+
+```bash
+# 가상 환경 활성화
+source .venv/bin/activate
+
+# FastAPI 백엔드 서버 실행
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# 새 터미널에서 Airflow 웹서버 실행
+export AIRFLOW_HOME=$(pwd)/airflow
+airflow webserver --port 8080
+
+# 또 다른 터미널에서 Airflow 스케줄러 실행
+airflow scheduler
 ```
 
-### 4. 주간 리포트 생성 (Airflow)
-
-주간 리포트 생성은 Airflow를 통해 자동화됩니다. 아래 절차에 따라 로컬 환경에서 Airflow를 설정하고 실행할 수 있습니다.
-
-**Airflow 설치 및 초기화 (최초 1회)**
+#### Docker 환경
 
 ```bash
-# 1. 프로젝트 의존성 설치 (apache-airflow 포함)
-pip install -e .
+# 모든 서비스 시작
+docker-compose up -d
 
-# 2. Airflow 홈 디렉토리 설정 및 DB 초기화
-export AIRFLOW_HOME=$(pwd)/airflow
-airflow db migrate
+# 특정 서비스만 시작
+docker-compose up -d backend
+docker-compose up -d airflow-webserver airflow-scheduler
 
-# 3. Airflow UI 접속을 위한 사용자 생성
-airflow users create --username admin --password admin --firstname Anonymous --lastname User --role Admin --email admin@example.com
+# 서비스 상태 확인
+docker-compose ps
+
+# 로그 확인
+docker-compose logs -f backend
+docker-compose logs -f airflow-webserver
 ```
 
-**Airflow 실행**
+### 5. 접속 URL
 
-```bash
-# Airflow 홈 디렉토리 설정
-export AIRFLOW_HOME=$(pwd)/airflow
-
-# Airflow 웹서버 실행 (백그라운드)
-airflow webserver --port 8080 &
-
-# Airflow 스케줄러 실행 (백그라운드)
-airflow scheduler &
-```
-
-**Airflow UI 설정**
-
-1.  Airflow가 실행되면 브라우저에서 `http://localhost:8080` 로 접속하여 위에서 생성한 계정(admin/admin)으로 로그인합니다.
-2.  **Admin > Connections** 메뉴로 이동하여, 프로젝트의 데이터베이스(PostgreSQL) 연결 정보를 설정합니다. `get_db_connection()` 함수가 사용하는 기본 연결 ID(`postgres_default`) 또는 코드에 명시된 다른 ID로 연결을 생성해야 합니다.
-3.  `weekly_learning_report` DAG이 목록에 나타나고, 스케줄에 따라 (매주 월요일 0시) 자동으로 실행됩니다.
+- **FastAPI 백엔드**: http://localhost:8000
+- **API 문서 (Swagger)**: http://localhost:8000/docs
+- **Airflow UI**: http://localhost:8080 (admin/admin)
+- **PostgreSQL**: localhost:5432
 
 ## 📚 API 엔드포인트
 
 ### REST API
 
+서버 실행 후 http://localhost:8000/docs 에서 Swagger UI를 통해 모든 API를 테스트할 수 있습니다.
+
+#### 헬스 체크
+
+- **GET** `/health`
+- **설명**: 서버 상태 확인
+
 #### 문제 생성
 
 - **POST** `/generate-question`
-- **설명**: 주어진 조건에 따라 새로운 문제를 생성합니다.
+- **설명**: 주어진 조건에 따라 새로운 5지선다 문제를 생성합니다.
+- **요청 본문**:
+  ```json
+  {
+    "subject": "수학",
+    "unit": "일차함수",
+    "difficulty": "medium",
+    "count": 5
+  }
+  ```
+- **응답 예시**:
+  ```json
+  {
+    "questions": [
+      {
+        "title": "일차함수의 기울기",
+        "content": "y = 2x + 3에서 기울기는?",
+        "options": ["1", "2", "3", "4", "5"],
+        "correct_answer": "2",
+        "explanation": "...",
+        "hints": ["..."],
+        "tags": ["일차함수", "기울기"]
+      }
+    ],
+    "metadata": {
+      "generated_count": 5,
+      "cost_usd": 0.000052
+    }
+  }
+  ```
 
 #### 챗봇 메시지 전송 (REST)
 
@@ -128,33 +235,37 @@ airflow scheduler &
   ```json
   {
     "user_id": "user_1234",
-    "user_message": "개념을 다시 설명해줄래?"
+    "user_message": "일차함수 개념을 다시 설명해줄래?"
   }
   ```
 - **성공 응답 (200 OK)**:
   ```json
   {
-    "ai_response": "네, 개념을 다시 설명해 드릴게요..."
+    "ai_response": "네, 일차함수에 대해 다시 설명해 드릴게요..."
   }
   ```
 
 ### WebSocket API
 
-#### 학습 챗봇
+#### 실시간 학습 챗봇
 
 - **WebSocket** `/ws/chat/{user_id}`
-- **설명**: 특정 학생을 위한 실시간 대화형 학습 챗봇 세션을 시작합니다. 챗봇은 DB에 저장된 가장 최신 주간 리포트를 기반으로 대화를 시작합니다.
+- **설명**: 특정 학생을 위한 실시간 대화형 학습 챗봇 세션을 시작합니다. 
+- **특징**:
+  - DB에 저장된 최신 주간 리포트 기반 개인화된 대화
+  - 실시간 양방향 통신
+  - 최근 학습 성과 실시간 반영
 
-## 💬 챗봇 사용법 (테스트용)
-
-백엔드 서버가 실행 중인 상태에서, 아래의 Python 코드를 사용하여 챗봇과 상호작용할 수 있습니다. `websockets` 라이브러리가 설치되어 있어야 합니다 (`pip install websockets`).
+#### WebSocket 연결 예시
 
 ```python
 import asyncio
 import websockets
+import json
 
 async def chat_with_tutor(user_id: str):
     uri = f"ws://localhost:8000/ws/chat/{user_id}"
+    
     async with websockets.connect(uri) as websocket:
         # 첫 인사 메시지 수신
         initial_message = await websocket.recv()
@@ -163,10 +274,11 @@ async def chat_with_tutor(user_id: str):
         while True:
             # 사용자 입력
             user_input = input("나: ")
-            if user_input.lower() == 'exit':
+            if user_input.lower() in ['exit', 'quit', '종료']:
                 print("대화를 종료합니다.")
                 break
 
+            # 메시지 전송
             await websocket.send(user_input)
 
             # 튜터 응답 수신
@@ -174,8 +286,250 @@ async def chat_with_tutor(user_id: str):
             print(f"AI 튜터: {tutor_response}")
 
 if __name__ == "__main__":
-    # 'user_1234'를 실제 테스트하고 싶은 학생 ID로 변경하세요.
+    # user_1234를 실제 사용자 ID로 변경
     asyncio.run(chat_with_tutor('user_1234'))
 ```
 
-(이후 내용은 이전과 동일)
+## 🔧 CLI 도구 사용법
+
+프로젝트는 개발 및 테스트를 위한 CLI 도구를 제공합니다.
+
+### 교과서 처리
+
+```bash
+# 교과서 파일을 벡터 DB에 저장
+python ai-services/src/main.py process-textbook \
+  --file ./data/math_textbook.txt \
+  --subject 수학 \
+  --unit 일차함수
+```
+
+### 문제 생성
+
+```bash
+# 문제 생성
+python ai-services/src/main.py generate-questions \
+  --subject 수학 \
+  --unit 일차함수 \
+  --difficulty medium \
+  --count 5 \
+  --output ./questions.json
+```
+
+### 시스템 상태 확인
+
+```bash
+# 벡터 DB 상태 및 사용량 확인
+python ai-services/src/main.py status
+```
+
+### 파이프라인 테스트
+
+```bash
+# 전체 파이프라인 테스트
+python ai-services/src/main.py test-pipeline
+```
+
+## 🧪 테스트
+
+### 단위 테스트
+
+```bash
+# 모든 테스트 실행
+pytest ai-services/tests/
+
+# 특정 테스트 파일 실행
+pytest ai-services/tests/test_question_generator.py
+
+# 커버리지 포함
+pytest --cov=ai-services/src ai-services/tests/
+```
+
+### 통합 테스트
+
+```bash
+# Gemini API 통합 테스트
+python test_llm_only.py
+
+# 문제 생성 테스트
+python test_question_gen.py
+```
+
+## 📊 모니터링 및 로깅
+
+### 로그 확인
+
+```bash
+# Docker 환경
+docker-compose logs -f backend
+docker-compose logs -f airflow-scheduler
+
+# 로컬 환경
+tail -f logs/app.log
+tail -f airflow/logs/scheduler/latest/*.log
+```
+
+### Airflow 모니터링
+
+1. Airflow UI 접속: http://localhost:8080
+2. DAGs 페이지에서 `weekly_learning_report` 상태 확인
+3. Task Instances에서 개별 작업 로그 확인
+
+## 💰 비용 관리
+
+### 현재 비용 (Google Gemini)
+
+- **LLM (Gemini 2.5 Flash)**:
+  - Input: $0.075 / 1M tokens
+  - Output: $0.30 / 1M tokens
+  
+- **Embeddings**: 무료 (2025년 기준)
+
+### 예상 월 비용
+
+| 사용량 | OpenAI 비용 | Gemini 비용 | 절감률 |
+|--------|-------------|-------------|--------|
+| 1M tokens | ~$250 | ~$0.40 | 99.8% |
+| 10M tokens | ~$2,500 | ~$4.00 | 99.8% |
+
+### 비용 추적
+
+```python
+# Python에서 비용 추적
+from src.models.llm_client import LLMClient
+from src.utils.config import get_settings
+
+settings = get_settings()
+llm = LLMClient(
+    model_name=settings.gemini_model,
+    api_key=settings.google_api_key
+)
+
+# 사용량 확인
+usage = llm.track_usage()
+print(f"총 비용: ${usage['total_cost_usd']:.6f}")
+```
+
+## 🐳 Docker 명령어 모음
+
+### 기본 명령어
+
+```bash
+# 모든 서비스 시작
+docker-compose up -d
+
+# 특정 서비스만 시작
+docker-compose up -d backend
+docker-compose up -d postgres
+
+# 서비스 중지
+docker-compose stop
+
+# 서비스 제거 (볼륨 유지)
+docker-compose down
+
+# 서비스 및 볼륨 완전 제거
+docker-compose down -v
+
+# 이미지 재빌드
+docker-compose build --no-cache
+docker-compose up -d --build
+```
+
+### 로그 및 디버깅
+
+```bash
+# 실시간 로그 확인
+docker-compose logs -f
+
+# 특정 서비스 로그
+docker-compose logs -f backend
+docker-compose logs -f airflow-webserver
+
+# 최근 100줄 로그
+docker-compose logs --tail=100 backend
+
+# 컨테이너 접속
+docker-compose exec backend bash
+docker-compose exec postgres psql -U eduai -d educational_ai
+```
+
+### 데이터베이스 관리
+
+```bash
+# PostgreSQL 접속
+docker-compose exec postgres psql -U eduai -d educational_ai
+
+# 데이터베이스 백업
+docker-compose exec postgres pg_dump -U eduai educational_ai > backup.sql
+
+# 데이터베이스 복원
+docker-compose exec -T postgres psql -U eduai educational_ai < backup.sql
+
+# 데이터베이스 초기화
+docker-compose down -v
+docker-compose up -d postgres
+```
+
+## 🔒 보안 및 환경 변수
+
+### 환경 변수 설정
+
+프로덕션 환경에서는 다음 변수들을 안전하게 관리하세요:
+
+```bash
+# .env 파일 (절대 Git에 커밋하지 마세요!)
+GOOGLE_API_KEY=your_actual_key_here
+POSTGRES_PASSWORD=strong_random_password
+AIRFLOW_SECRET_KEY=generate_secure_random_key
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+```
+
+### .gitignore 확인
+
+```bash
+# 다음 파일들이 .gitignore에 포함되어 있는지 확인
+.env
+*.db
+*.log
+__pycache__/
+.venv/
+ai-services/data/vector_db/
+ai-services/data/cache/
+```
+
+## 🤝 기여하기
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 라이선스
+
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
+
+## 📧 문의
+
+- **프로젝트 저장소**: [GitHub](https://github.com/DMU-EduBridge/educational-ai-system)
+- **이슈 트래커**: [Issues](https://github.com/DMU-EduBridge/educational-ai-system/issues)
+- **문서**: [Wiki](https://github.com/DMU-EduBridge/educational-ai-system/wiki)
+
+## 🙏 감사의 말
+
+- [Google Gemini API](https://ai.google.dev) - 강력한 LLM 제공
+- [Langchain](https://python.langchain.com) - LLM 통합 프레임워크
+- [FastAPI](https://fastapi.tiangolo.com) - 고성능 API 프레임워크
+- [Apache Airflow](https://airflow.apache.org) - 워크플로우 자동화
+- [ChromaDB](https://chromadb.com) - 벡터 데이터베이스
+
+## 📚 추가 문서
+
+- [마이그레이션 가이드](./GEMINI_MIGRATION.md) - OpenAI에서 Gemini로의 전환
+- [마이그레이션 요약](./MIGRATION_SUMMARY.md) - 변경 사항 상세
+- [테스트 보고서](./TEST_REPORT.md) - Gemini API 통합 테스트 결과
+
+---
+
+**Made with ❤️ by DMU-EduBridge Team**
