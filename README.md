@@ -19,7 +19,7 @@
 
 - 📚 **교과서 텍스트 처리**: .txt, .md, .pdf 파일을 지능적으로 청킹
 - 🧠 **AI 문제 생성**: `gpt-5-mini`를 사용한 교육적 5지선다 문제 생성
-- 👨‍🎓 **주간 리포트 자동 생성**: Airflow를 사용하여 매주 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성하여 DB에 저장
+- 👨‍🎓 **주간 리포트 자동 생성**: Airflow를 사용하여 매주 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성하여 `teacher_reports` DB 테이블에 저장
 - 🚀 **API 제공**: FastAPI를 활용하여 문제 생성 API 제공
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
 
@@ -28,16 +28,20 @@
 ```
 educational-ai-system/
 ├── airflow/
-│   ├── dags/                 # Airflow DAG 파일
-│   ├── logs/                 # Airflow 로그
-│   └── plugins/              # Airflow 플러그인
-├── backend/                    # FastAPI 백엔드 모듈
-├── ai_services/                # 핵심 AI 서비스 모듈
+│   ├── dags/
+│   │   └── weekly_report_dag.py
+│   ├── logs/
+│   └── airflow.cfg
+├── backend/
+│   └── main.py
+├── ai_services/
 │   ├── src/
-│   │   ├── analysis/           # 학생 분석 모듈
+│   │   ├── analysis/
+│   │   ├── models/
 │   │   └── ...
-│   └── ...
-└── ...
+│   └── tests/
+├── pyproject.toml
+└── README.md
 ```
 
 ## 🚀 빠른 시작
@@ -61,26 +65,40 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 ### 4. 주간 리포트 생성 (Airflow)
 
-주간 리포트 생성은 Airflow를 통해 자동화됩니다. 아래 절차에 따라 Airflow를 실행할 수 있습니다.
+주간 리포트 생성은 Airflow를 통해 자동화됩니다. 아래 절차에 따라 로컬 환경에서 Airflow를 설정하고 실행할 수 있습니다.
 
-**Airflow 초기화 (최초 1회)**
+**Airflow 설치 및 초기화 (최초 1회)**
 
 ```bash
-# .env 파일 생성 (Airflow가 내부적으로 사용)
-echo -e "AIRFLOW_UID=$(id -u)" > .env
+# 1. 프로젝트 의존성 설치 (apache-airflow 포함)
+pip install -e .
 
-# Airflow Docker Compose로 DB 초기화
-docker-compose -f docker-compose.airflow.yml run --rm airflow-init
+# 2. Airflow 홈 디렉토리 설정 및 DB 초기화
+export AIRFLOW_HOME=$(pwd)/airflow
+airflow db migrate
+
+# 3. Airflow UI 접속을 위한 사용자 생성
+airflow users create --username admin --password admin --firstname Anonymous --lastname User --role Admin --email admin@example.com
 ```
 
 **Airflow 실행**
 
 ```bash
-# Airflow 서비스 시작
-docker-compose -f docker-compose.airflow.yml up -d
+# Airflow 홈 디렉토리 설정
+export AIRFLOW_HOME=$(pwd)/airflow
+
+# Airflow 웹서버 실행 (백그라운드)
+airflow webserver --port 8080 &
+
+# Airflow 스케줄러 실행 (백그라운드)
+airflow scheduler &
 ```
 
-Airflow가 실행되면 브라우저에서 `http://localhost:8080` 로 접속하여 Airflow UI를 확인할 수 있습니다. `weekly_student_reports` DAG이 매주 자동으로 실행되어 리포트를 생성하고 `teacher_reports` 테이블에 저장합니다.
+**Airflow UI 설정**
+
+1.  Airflow가 실행되면 브라우저에서 `http://localhost:8080` 로 접속하여 위에서 생성한 계정(admin/admin)으로 로그인합니다.
+2.  **Admin > Connections** 메뉴로 이동하여, 프로젝트의 데이터베이스(PostgreSQL) 연결 정보를 설정합니다. `get_db_connection()` 함수가 사용하는 기본 연결 ID(`postgres_default`) 또는 코드에 명시된 다른 ID로 연결을 생성해야 합니다.
+3.  `weekly_learning_report` DAG이 목록에 나타나고, 스케줄에 따라 (매주 월요일 0시) 자동으로 실행됩니다.
 
 ## 📚 API 엔드포인트
 
