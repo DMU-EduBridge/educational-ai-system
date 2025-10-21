@@ -8,12 +8,12 @@ from pathlib import Path
 class Settings(BaseSettings):
     """애플리케이션 설정"""
 
-    # OpenAI API 설정
-    openai_api_key: str = Field(..., description="OpenAI API Key")
-    openai_model: str = Field(default="gpt-5-mini", description="OpenAI LLM Model")
-    openai_embedding_model: str = Field(default="text-embedding-ada-002", description="OpenAI Embedding Model")
-    openai_temperature: float = Field(default=1.0, ge=0.0, le=2.0, description="LLM Temperature")
-    openai_max_tokens: int = Field(default=20000, ge=1, le=4000, description="Max tokens for LLM responses")
+    # Google Gemini API 설정
+    google_api_key: str = Field(..., description="Google API Key")
+    gemini_model: str = Field(default="gemini-1.5-flash", description="Google Gemini Model")
+    embedding_model: str = Field(default="models/embedding-001", description="Google Embedding Model")
+    gemini_temperature: float = Field(default=1.0, ge=0.0, le=2.0, description="LLM Temperature")
+    gemini_max_tokens: int = Field(default=20000, ge=1, le=100000, description="Max tokens for LLM responses")
 
     # ChromaDB 설정
     chroma_db_path: str = Field(default="./data/vector_db", description="ChromaDB persist directory")
@@ -74,15 +74,20 @@ class Settings(BaseSettings):
         """프로덕션 환경 여부"""
         return not self.debug
 
-    def get_openai_config(self) -> dict:
-        """OpenAI 설정 반환"""
+    def get_gemini_config(self) -> dict:
+        """Google Gemini 설정 반환"""
         return {
-            'api_key': self.openai_api_key,
-            'model': self.openai_model,
-            'embedding_model': self.openai_embedding_model,
-            'temperature': self.openai_temperature,
-            'max_tokens': self.openai_max_tokens
+            'api_key': self.google_api_key,
+            'model': self.gemini_model,
+            'embedding_model': self.embedding_model,
+            'temperature': self.gemini_temperature,
+            'max_tokens': self.gemini_max_tokens
         }
+    
+    # 하위 호환성을 위한 별칭
+    def get_openai_config(self) -> dict:
+        """Gemini 설정 반환 (하위 호환성)"""
+        return self.get_gemini_config()
 
     def get_chroma_config(self) -> dict:
         """ChromaDB 설정 반환"""
@@ -108,14 +113,11 @@ class Settings(BaseSettings):
 
     def validate_api_key(self) -> bool:
         """API 키 유효성 검사"""
-        if not self.openai_api_key or self.openai_api_key == "your_openai_api_key_here":
+        if not self.google_api_key or self.google_api_key == "your_google_api_key_here":
             return False
 
-        # 기본적인 형식 검사
-        if not self.openai_api_key.startswith('sk-'):
-            return False
-
-        return len(self.openai_api_key) > 20
+        # 기본적인 길이 검사
+        return len(self.google_api_key) > 20
 
     def update_setting(self, key: str, value) -> bool:
         """설정 값 업데이트"""
@@ -131,8 +133,8 @@ class Settings(BaseSettings):
         """설정을 딕셔너리로 변환 (API 키 제외)"""
         config_dict = self.dict()
         # 민감한 정보 마스킹
-        if 'openai_api_key' in config_dict:
-            config_dict['openai_api_key'] = f"sk-...{config_dict['openai_api_key'][-4:]}"
+        if 'google_api_key' in config_dict:
+            config_dict['google_api_key'] = f"...{config_dict['google_api_key'][-4:]}"
         return config_dict
 
 

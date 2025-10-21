@@ -1,17 +1,18 @@
 from typing import Optional, Dict, Any, List
-import openai
-import tiktoken
 import time
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from datetime import datetime
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.schema import HumanMessage, SystemMessage
+import tiktoken
 
 
 class LLMClient:
-    """OpenAI API 클라이언트"""
+    """Google Gemini API 클라이언트 (Langchain 사용)"""
 
     def __init__(self,
-                 model_name: str = "gpt-5-mini",
+                 model_name: str = "gemini-1.5-flash",
                  api_key: Optional[str] = None,
                  temperature: float = 1.0,
                  max_tokens: int = 20000):
@@ -19,22 +20,29 @@ class LLMClient:
         LLMClient 초기화
 
         Args:
-            model_name: OpenAI 모델명
-            api_key: OpenAI API 키
+            model_name: Google Gemini 모델명 (gemini-1.5-flash, gemini-1.5-pro 등)
+            api_key: Google API 키
             temperature: 응답의 창의성 (0.0-2.0)
             max_tokens: 최대 토큰 수
         """
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.client = openai.OpenAI(api_key=api_key) if api_key else openai.OpenAI()
         self.logger = logging.getLogger(__name__)
 
-        # 토큰 카운터 초기화
+        # Langchain을 통한 Gemini 클라이언트 초기화
+        self.client = ChatGoogleGenerativeAI(
+            model=model_name,
+            google_api_key=api_key,
+            temperature=temperature,
+            max_output_tokens=max_tokens
+        )
+
+        # 토큰 카운터 초기화 (대략적인 추정용)
         try:
-            self.encoding = tiktoken.encoding_for_model(model_name)
-        except KeyError:
-            self.encoding = tiktoken.get_encoding("cl100k_base")  # GPT-4 기본 인코딩
+            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            self.encoding = None
 
         # 사용량 추적
         self.usage_stats = {
@@ -46,15 +54,11 @@ class LLMClient:
             'last_request_time': None
         }
 
-        # 모델별 가격 정보 (per 1K tokens)
+        # 모델별 가격 정보 (per 1K tokens) - Gemini 가격
         self.pricing = {
-            'gpt-3.5-turbo': {'prompt': 0.0015, 'completion': 0.002},
-            'gpt-3.5-turbo-16k': {'prompt': 0.003, 'completion': 0.004},
-            'gpt-4': {'prompt': 0.03, 'completion': 0.06},
-            'gpt-4-32k': {'prompt': 0.06, 'completion': 0.12},
-            'gpt-4-turbo-preview': {'prompt': 0.01, 'completion': 0.03},
-            'gpt-4o': {'prompt': 0.005, 'completion': 0.015},
-            'gpt-5-mini': {'prompt': 0.00025, 'completion': 0.002}
+            'gemini-1.5-flash': {'prompt': 0.00001875, 'completion': 0.000075},  # $0.075/$0.30 per 1M tokens
+            'gemini-1.5-pro': {'prompt': 0.00125, 'completion': 0.005},  # $1.25/$5.00 per 1M tokens
+            'gemini-pro': {'prompt': 0.0005, 'completion': 0.0015},  # $0.50/$1.50 per 1M tokens
         }
 
     @retry(
@@ -83,30 +87,36 @@ class LLMClient:
             actual_max_tokens = max_tokens or self.max_tokens
             actual_temperature = temperature if temperature is not None else self.temperature
 
+            # 임시 클라이언트 생성 (매개변수가 다를 경우)
+            if actual_max_tokens != self.max_tokens or actual_temperature != self.temperature:
+                temp_client = ChatGoogleGenerativeAI(
+                    model=self.model_name,
+                    google_api_key=self.client._client.api_key if hasattr(self.client, '_client') else None,
+                    temperature=actual_temperature,
+                    max_output_tokens=actual_max_tokens
+                )
+            else:
+                temp_client = self.client
+
             # 메시지 구성
             messages = []
             if system_message:
-                messages.append({"role": "system", "content": system_message})
-            messages.append({"role": "user", "content": prompt})
+                messages.append(SystemMessage(content=system_message))
+            messages.append(HumanMessage(content=prompt))
 
             # 토큰 수 추정
-            prompt_tokens = self._count_messages_tokens(messages)
+            prompt_tokens = self._count_messages_tokens_from_langchain(messages)
 
             # API 호출
             start_time = time.time()
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                max_tokens=actual_max_tokens,
-                temperature=actual_temperature,
-                n=1,
-                stop=None
-            )
+            response = temp_client.invoke(messages)
 
             # 응답 처리
-            generated_text = response.choices[0].message.content
-            completion_tokens = response.usage.completion_tokens
-            total_tokens = response.usage.total_tokens
+            generated_text = response.content
+            
+            # Gemini는 사용량 정보를 response_metadata에 포함
+            completion_tokens = self.estimate_tokens(generated_text)
+            total_tokens = prompt_tokens + completion_tokens
 
             # 사용량 업데이트
             self._update_usage_stats(prompt_tokens, completion_tokens, total_tokens)
@@ -157,9 +167,13 @@ class LLMClient:
                 except json.JSONDecodeError as e:
                     # JSON 파싱 실패 시 재시도
                     self.logger.warning(f"JSON parsing failed: {str(e)}")
+                    self.logger.debug(f"Raw response: {response_text[:500]}")
                     # 간단한 JSON 수정 시도
                     cleaned_response = self._clean_json_response(response_text)
-                    return json.loads(cleaned_response)
+                    if cleaned_response:
+                        return json.loads(cleaned_response)
+                    else:
+                        raise ValueError(f"Could not extract valid JSON from response: {response_text[:200]}")
 
             else:
                 raise ValueError(f"Unsupported response format: {response_format}")
@@ -179,7 +193,11 @@ class LLMClient:
             int: 추정 토큰 수
         """
         try:
-            return len(self.encoding.encode(text))
+            if self.encoding:
+                return len(self.encoding.encode(text))
+            else:
+                # 대략적인 추정치 (1 토큰 ≈ 4 문자)
+                return len(text) // 4
         except Exception as e:
             self.logger.warning(f"Error counting tokens: {str(e)}")
             # 대략적인 추정치 (1 토큰 ≈ 4 문자)
@@ -196,7 +214,7 @@ class LLMClient:
         Returns:
             Dict[str, float]: 비용 정보
         """
-        pricing = self.pricing.get(self.model_name, self.pricing['gpt-5-mini'])
+        pricing = self.pricing.get(self.model_name, self.pricing.get('gemini-1.5-flash', {'prompt': 0.00001875, 'completion': 0.000075}))
 
         prompt_tokens = self.estimate_tokens(prompt)
         prompt_cost = (prompt_tokens / 1000) * pricing['prompt']
@@ -247,7 +265,7 @@ class LLMClient:
 
     def _count_messages_tokens(self, messages: List[Dict[str, str]]) -> int:
         """
-        메시지 리스트의 토큰 수 계산
+        메시지 리스트의 토큰 수 계산 (딕셔너리 형식)
 
         Args:
             messages: 메시지 리스트
@@ -259,9 +277,33 @@ class LLMClient:
         for message in messages:
             num_tokens += 4  # 메시지당 기본 토큰
             for key, value in message.items():
-                num_tokens += len(self.encoding.encode(value))
+                if self.encoding:
+                    num_tokens += len(self.encoding.encode(str(value)))
+                else:
+                    num_tokens += len(str(value)) // 4
                 if key == "name":
                     num_tokens += -1  # name 필드는 1 토큰 감소
+
+        num_tokens += 2  # 어시스턴트 응답을 위한 준비 토큰
+        return num_tokens
+
+    def _count_messages_tokens_from_langchain(self, messages: List) -> int:
+        """
+        Langchain 메시지 객체의 토큰 수 계산
+
+        Args:
+            messages: Langchain 메시지 리스트
+
+        Returns:
+            int: 토큰 수
+        """
+        num_tokens = 0
+        for message in messages:
+            num_tokens += 4  # 메시지당 기본 토큰
+            if self.encoding:
+                num_tokens += len(self.encoding.encode(message.content))
+            else:
+                num_tokens += len(message.content) // 4
 
         num_tokens += 2  # 어시스턴트 응답을 위한 준비 토큰
         return num_tokens
@@ -281,7 +323,8 @@ class LLMClient:
         self.usage_stats['total_completion_tokens'] += completion_tokens
 
         # 비용 계산
-        pricing = self.pricing.get(self.model_name, self.pricing['gpt-5-mini'])
+        default_pricing = {'prompt': 0.00001875, 'completion': 0.000075}  # gemini-1.5-flash 기본값
+        pricing = self.pricing.get(self.model_name, default_pricing)
         prompt_cost = (prompt_tokens / 1000) * pricing['prompt']
         completion_cost = (completion_tokens / 1000) * pricing['completion']
         self.usage_stats['total_cost_usd'] += prompt_cost + completion_cost
@@ -304,10 +347,12 @@ class LLMClient:
             response: 원본 응답
 
         Returns:
-            str: 정리된 JSON 문자열
+            str: 정리된 JSON 문자열 (실패시 빈 문자열)
         """
         # 코드 블록 제거
         response = response.strip()
+        
+        # ```json ... ``` 형식 제거
         if response.startswith('```json'):
             response = response[7:]
         if response.startswith('```'):
@@ -317,5 +362,18 @@ class LLMClient:
 
         # 앞뒤 공백 제거
         response = response.strip()
+        
+        # JSON 객체/배열 추출 시도
+        import re
+        
+        # { ... } 패턴 찾기
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            return json_match.group(0)
+        
+        # [ ... ] 패턴 찾기
+        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        if json_match:
+            return json_match.group(0)
 
         return response

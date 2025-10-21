@@ -60,14 +60,16 @@ class RAGPipeline:
         try:
             # API 키 검증
             if not self.settings.validate_api_key():
-                raise ValueError("Invalid or missing OpenAI API key")
+                raise ValueError("Invalid or missing Google API key")
 
             # 각 컴포넌트 초기화
             self.document_processor = DocumentProcessor()
 
+            gemini_config = self.settings.get_gemini_config()
+            
             self.embeddings_manager = EmbeddingsManager(
-                model_name=self.settings.openai_embedding_model,
-                api_key=self.settings.openai_api_key
+                model_name=gemini_config['embedding_model'],
+                api_key=gemini_config['api_key']
             )
 
             self.vector_store = VectorStore(
@@ -81,10 +83,10 @@ class RAGPipeline:
             )
 
             self.llm_client = LLMClient(
-                model_name=self.settings.openai_model,
-                api_key=self.settings.openai_api_key,
-                temperature=self.settings.openai_temperature,
-                max_tokens=self.settings.openai_max_tokens
+                model_name=gemini_config['model'],
+                api_key=gemini_config['api_key'],
+                temperature=gemini_config['temperature'],
+                max_tokens=gemini_config['max_tokens']
             )
 
             self.question_generator = QuestionGenerator(

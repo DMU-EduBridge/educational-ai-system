@@ -1,28 +1,37 @@
 from typing import List, Optional
-import openai
-import tiktoken
 import time
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import tiktoken
 
 
 class EmbeddingsManager:
-    """임베딩 생성 및 관리"""
+    """임베딩 생성 및 관리 (Google Generative AI 사용)"""
 
-    def __init__(self, model_name: str = "text-embedding-ada-002", api_key: Optional[str] = None):
+    def __init__(self, model_name: str = "models/embedding-001", api_key: Optional[str] = None):
         """
         EmbeddingsManager 초기화
 
         Args:
-            model_name: OpenAI 임베딩 모델명
-            api_key: OpenAI API 키
+            model_name: Google 임베딩 모델명 (models/embedding-001, models/text-embedding-004 등)
+            api_key: Google API 키
         """
         self.model_name = model_name
-        self.client = openai.OpenAI(api_key=api_key) if api_key else openai.OpenAI()
-        self.encoding = tiktoken.encoding_for_model("text-embedding-ada-002")
+        self.client = GoogleGenerativeAIEmbeddings(
+            model=model_name,
+            google_api_key=api_key
+        )
+        
+        # 토큰 카운터 (대략적 추정용)
+        try:
+            self.encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            self.encoding = None
+            
         self.logger = logging.getLogger(__name__)
 
-        # API 제한: text-embedding-ada-002는 분당 1,000,000 토큰, 분당 3,000 요청
+        # API 제한: Google Embedding API는 관대한 편
         self.max_tokens_per_minute = 1000000
         self.max_requests_per_minute = 3000
         self.batch_size = 100  # 한 번에 처리할 텍스트 수
@@ -55,12 +64,8 @@ class EmbeddingsManager:
             self.logger.info(f"Processing batch {i//self.batch_size + 1}: {len(batch)} texts, {total_tokens} tokens")
 
             try:
-                response = self.client.embeddings.create(
-                    model=self.model_name,
-                    input=batch
-                )
-
-                batch_embeddings = [item.embedding for item in response.data]
+                # Langchain의 embed_documents 메서드 사용
+                batch_embeddings = self.client.embed_documents(batch)
                 all_embeddings.extend(batch_embeddings)
 
                 # API 속도 제한 방지를 위한 대기
@@ -91,12 +96,9 @@ class EmbeddingsManager:
             raise ValueError("Text cannot be empty")
 
         try:
-            response = self.client.embeddings.create(
-                model=self.model_name,
-                input=[text]
-            )
-
-            return response.data[0].embedding
+            # Langchain의 embed_query 메서드 사용
+            embedding = self.client.embed_query(text)
+            return embedding
 
         except Exception as e:
             self.logger.error(f"Error generating single embedding: {str(e)}")
@@ -121,8 +123,8 @@ class EmbeddingsManager:
 
         total_tokens = sum(self._count_tokens(text) for text in texts)
 
-        # text-embedding-ada-002 가격: $0.0001 / 1K tokens
-        cost_per_1k_tokens = 0.0001
+        # Google Embedding API 가격: 무료 또는 매우 저렴 (2024년 기준 무료)
+        cost_per_1k_tokens = 0.0  # 현재 무료
         estimated_cost = (total_tokens / 1000) * cost_per_1k_tokens
 
         return {
@@ -144,7 +146,11 @@ class EmbeddingsManager:
             int: 토큰 수
         """
         try:
-            return len(self.encoding.encode(text))
+            if self.encoding:
+                return len(self.encoding.encode(text))
+            else:
+                # 대략적인 추정치 (1 토큰 ≈ 4 문자)
+                return len(text) // 4
         except Exception as e:
             self.logger.warning(f"Error counting tokens: {str(e)}")
             # 대략적인 추정치 (1 토큰 ≈ 4 문자)
@@ -160,19 +166,19 @@ class EmbeddingsManager:
         Returns:
             bool: 유효한 길이인지 여부
         """
-        # text-embedding-ada-002의 최대 토큰 길이: 8,191
-        max_tokens = 8191
+        # Google Embedding API의 최대 토큰 길이: 약 20,000 토큰
+        max_tokens = 20000
         token_count = self._count_tokens(text)
 
         return token_count <= max_tokens
 
-    def split_long_text(self, text: str, max_tokens: int = 8000) -> List[str]:
+    def split_long_text(self, text: str, max_tokens: int = 19000) -> List[str]:
         """
         긴 텍스트를 토큰 제한에 맞게 분할
 
         Args:
             text: 분할할 텍스트
-            max_tokens: 최대 토큰 수
+            max_tokens: 최대 토큰 수 (Google은 약 20,000)
 
         Returns:
             List[str]: 분할된 텍스트 리스트

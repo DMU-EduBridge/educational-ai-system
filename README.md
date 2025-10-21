@@ -6,7 +6,8 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green.svg)](https://fastapi.tiangolo.com/)
 [![Airflow](https://img.shields.io/badge/Airflow-Workflow-blue.svg)](https://airflow.apache.org/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-gpt--5--mini-blue.svg)](https://openai.com)
+[![Google Gemini](https://img.shields.io/badge/Google-Gemini%201.5-blue.svg)](https://ai.google.dev)
+[![Langchain](https://img.shields.io/badge/Langchain-Integration-green.svg)](https://python.langchain.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-orange.svg)](https://chromadb.com)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-blue.svg)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,10 +19,20 @@
 ### ✨ 주요 기능
 
 - 📚 **교과서 텍스트 처리**: .txt, .md, .pdf 파일을 지능적으로 청킹
-- 🧠 **AI 문제 생성**: `gpt-5-mini`를 사용한 교육적 5지선다 문제 생성
-- 👨‍🎓 **주간 리포트 자동 생성**: Airflow를 사용하여 매주 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성하여 `teacher_reports` DB 테이블에 저장
+- 🧠 **AI 문제 생성**: `Google Gemini 1.5`를 사용한 교육적 5지선다 문제 생성 (Langchain 통합)
+- � **벡터 검색**: Google Embeddings를 활용한 의미 기반 문서 검색
+- �👨‍🎓 **주간 리포트 자동 생성**: Airflow를 사용하여 매주 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성하여 `teacher_reports` DB 테이블에 저장
 - 🚀 **API 제공**: FastAPI를 활용하여 문제 생성 API 제공
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
+- 💰 **비용 효율**: OpenAI 대비 99% 이상 비용 절감
+
+### 🆕 최근 업데이트
+
+- ✅ **Google Gemini API로 마이그레이션** (2025.10.21)
+  - OpenAI → Google Gemini 2.5 Flash
+  - Langchain을 통한 통합 구현
+  - 99% 이상 비용 절감
+  - 상세 내용: [MIGRATION_SUMMARY.md](./MIGRATION_SUMMARY.md)
 
 ## 🏗️ 시스템 아키텍처
 
