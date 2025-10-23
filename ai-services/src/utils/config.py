@@ -11,7 +11,14 @@ class Settings(BaseSettings):
     # Google Gemini API 설정
     google_api_key: str = Field(..., description="Google API Key")
     gemini_model: str = Field(default="gemini-1.5-flash", description="Google Gemini Model")
-    embedding_model: str = Field(default="models/embedding-001", description="Google Embedding Model")
+    
+    # 임베딩 설정
+    embedding_provider: str = Field(default="local", description="Embedding provider: 'google' or 'local'")
+    embedding_model: str = Field(
+        default="jhgan/ko-sroberta-multitask", 
+        description="Embedding model (Google: models/embedding-001, Local: jhgan/ko-sroberta-multitask)"
+    )
+    
     gemini_temperature: float = Field(default=1.0, ge=0.0, le=2.0, description="LLM Temperature")
     gemini_max_tokens: int = Field(default=20000, ge=1, le=100000, description="Max tokens for LLM responses")
 
