@@ -28,8 +28,8 @@ class TestIntegration:
         self.settings.chroma_db_path = str(Path(self.temp_dir) / "vector_db")
         self.settings.cache_dir = str(Path(self.temp_dir) / "cache")
 
-        # 테스트용 API 키 설정 (실제로는 환경변수에서 가져와야 함)
-        self.settings.openai_api_key = os.getenv('OPENAI_API_KEY', 'sk-test-key-for-testing')
+        # 테스트용 API 키 설정 (Gemini API)
+        self.settings.google_api_key = os.getenv('GOOGLE_API_KEY', 'test-key-for-testing')
 
     def teardown_method(self):
         """각 테스트 메서드 실행 후 정리"""

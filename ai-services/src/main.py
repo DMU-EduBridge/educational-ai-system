@@ -67,9 +67,11 @@ class RAGPipeline:
 
             gemini_config = self.settings.get_gemini_config()
             
+            # 임베딩 매니저 초기화 (provider 설정 추가)
             self.embeddings_manager = EmbeddingsManager(
-                model_name=gemini_config['embedding_model'],
-                api_key=gemini_config['api_key']
+                model_name=self.settings.embedding_model,
+                api_key=gemini_config['api_key'] if self.settings.embedding_provider == 'google' else None,
+                provider=self.settings.embedding_provider
             )
 
             self.vector_store = VectorStore(
@@ -114,7 +116,7 @@ class RAGPipeline:
             # 2. 임베딩 생성
             texts = [doc.content for doc in documents]
             cost_info = self.embeddings_manager.estimate_cost(texts)
-            self.logger.info(f"Estimated embedding cost: ${cost_info['estimated_cost_usd']:.4f}")
+            self.logger.info(f"Estimated embedding cost: ${cost_info.get('total_cost', cost_info.get('estimated_cost_usd', 0)):.4f}")
 
             embeddings = self.embeddings_manager.generate_embeddings(texts)
             self.logger.info(f"Generated {len(embeddings)} embeddings")
@@ -127,7 +129,7 @@ class RAGPipeline:
                     'status': 'success',
                     'processed_chunks': len(documents),
                     'total_tokens': cost_info['total_tokens'],
-                    'estimated_cost': cost_info['estimated_cost_usd'],
+                    'estimated_cost': cost_info.get('total_cost', cost_info.get('estimated_cost_usd', 0)),
                     'subject': subject,
                     'unit': unit,
                     'source_file': Path(file_path).name

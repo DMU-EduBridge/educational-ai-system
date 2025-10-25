@@ -12,7 +12,7 @@ class LLMClient:
     """Google Gemini API 클라이언트 (Langchain 사용)"""
 
     def __init__(self,
-                 model_name: str = "gemini-1.5-flash",
+                 model_name: str = "gemini-2.5-flash",
                  api_key: Optional[str] = None,
                  temperature: float = 1.0,
                  max_tokens: int = 20000):
@@ -26,6 +26,7 @@ class LLMClient:
             max_tokens: 최대 토큰 수
         """
         self.model_name = model_name
+        self.api_key = api_key  # API 키 저장
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class LLMClient:
             if actual_max_tokens != self.max_tokens or actual_temperature != self.temperature:
                 temp_client = ChatGoogleGenerativeAI(
                     model=self.model_name,
-                    google_api_key=self.client._client.api_key if hasattr(self.client, '_client') else None,
+                    google_api_key=self.api_key,  # 저장된 API 키 사용
                     temperature=actual_temperature,
                     max_output_tokens=actual_max_tokens
                 )
@@ -113,6 +114,11 @@ class LLMClient:
 
             # 응답 처리
             generated_text = response.content
+            
+            # 빈 응답 확인
+            if not generated_text or not generated_text.strip():
+                self.logger.warning("Received empty response from LLM, retrying...")
+                raise ValueError("Empty response from LLM")  # 재시도 트리거
             
             # Gemini는 사용량 정보를 response_metadata에 포함
             completion_tokens = self.estimate_tokens(generated_text)
@@ -160,20 +166,29 @@ class LLMClient:
                     system_message=system_message
                 )
 
+                # 응답 검증
+                if not response_text or not response_text.strip():
+                    self.logger.error("Received empty response from LLM")
+                    raise ValueError("Empty response from LLM")
+
+                self.logger.debug(f"Raw LLM response (first 500 chars): {response_text[:500]}")
+
                 # JSON 파싱
                 import json
                 try:
                     return json.loads(response_text)
                 except json.JSONDecodeError as e:
                     # JSON 파싱 실패 시 재시도
-                    self.logger.warning(f"JSON parsing failed: {str(e)}")
-                    self.logger.debug(f"Raw response: {response_text[:500]}")
+                    self.logger.error(f"JSON parsing failed: {str(e)}")
+                    self.logger.error(f"Full raw response:\n{response_text}")
                     # 간단한 JSON 수정 시도
                     cleaned_response = self._clean_json_response(response_text)
                     if cleaned_response:
+                        self.logger.info("Successfully cleaned JSON response")
                         return json.loads(cleaned_response)
                     else:
-                        raise ValueError(f"Could not extract valid JSON from response: {response_text[:200]}")
+                        self.logger.error(f"Failed to clean JSON response")
+                        raise ValueError(f"Could not extract valid JSON from response")
 
             else:
                 raise ValueError(f"Unsupported response format: {response_format}")
@@ -341,7 +356,7 @@ class LLMClient:
 
     def _clean_json_response(self, response: str) -> str:
         """
-        JSON 응답 정리
+        JSON 응답 정리 및 추출
 
         Args:
             response: 원본 응답
@@ -349,13 +364,15 @@ class LLMClient:
         Returns:
             str: 정리된 JSON 문자열 (실패시 빈 문자열)
         """
+        import re
+        
         # 코드 블록 제거
         response = response.strip()
         
         # ```json ... ``` 형식 제거
         if response.startswith('```json'):
             response = response[7:]
-        if response.startswith('```'):
+        elif response.startswith('```'):
             response = response[3:]
         if response.endswith('```'):
             response = response[:-3]
@@ -363,15 +380,43 @@ class LLMClient:
         # 앞뒤 공백 제거
         response = response.strip()
         
-        # JSON 객체/배열 추출 시도
-        import re
+        # JSON 객체 추출 시도 (중괄호로 시작하는 첫 번째 완전한 JSON 객체)
+        try:
+            # { 로 시작하고 } 로 끝나는 부분 찾기
+            start = response.find('{')
+            if start != -1:
+                # 중괄호 균형을 맞춰 JSON 객체 추출
+                brace_count = 0
+                in_string = False
+                escape_next = False
+                
+                for i in range(start, len(response)):
+                    char = response[i]
+                    
+                    if escape_next:
+                        escape_next = False
+                        continue
+                    
+                    if char == '\\':
+                        escape_next = True
+                        continue
+                    
+                    if char == '"' and not escape_next:
+                        in_string = not in_string
+                    
+                    if not in_string:
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                return response[start:i+1]
+                
+        except Exception as e:
+            self.logger.warning(f"Error extracting JSON: {e}")
         
-        # { ... } 패턴 찾기
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            return json_match.group(0)
-        
-        # [ ... ] 패턴 찾기
+        # 실패 시 원본 반환
+        return response        # [ ... ] 패턴 찾기
         json_match = re.search(r'\[.*\]', response, re.DOTALL)
         if json_match:
             return json_match.group(0)

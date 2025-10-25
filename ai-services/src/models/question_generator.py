@@ -78,7 +78,7 @@ class QuestionGenerator:
             response = self.llm_client.generate_structured_response(
                 prompt=prompt,
                 response_format="json",
-                max_tokens=1500
+                max_tokens=20000  # 충분한 토큰 수 확보
             )
 
             # 응답 검증 및 후처리
@@ -269,7 +269,7 @@ class QuestionGenerator:
                               difficulty: str,
                               context: str) -> str:
         """
-        문제 생성용 프롬프트 생성 (모든 필드 필수)
+        문제 생성용 프롬프트 생성 (간소화 버전)
 
         Args:
             subject: 과목명
@@ -280,43 +280,41 @@ class QuestionGenerator:
         Returns:
             str: 생성된 프롬프트
         """
+        # 컨텍스트 길이 제한 (너무 길면 잘라내기)
+        max_context_length = 2000
+        if len(context) > max_context_length:
+            context = context[:max_context_length] + "..."
+            
         difficulty_guidelines = {
-            'easy': '기본 개념 이해 확인, 단순 암기, 용어 정의',
-            'medium': '개념 적용 및 계산, 예제 문제 응용',
-            'hard': '복합적 사고 및 응용, 심화 분석, 문제 해결'
+            'easy': '기본 개념 이해, 단순 계산',
+            'medium': '개념 적용 및 계산',
+            'hard': '복합적 사고 및 문제 해결'
         }
         difficulty_guide = difficulty_guidelines.get(difficulty, difficulty_guidelines['medium'])
 
-        prompt = f"""당신은 중학교 {subject} 과목의 전문 교사입니다.
-다음 교과서 내용을 바탕으로 {difficulty} 난이도의 5지선다 문제를 1개 생성해주세요.
+        prompt = f"""당신은 중학교 {subject} 교사입니다. 다음 교과서 내용을 바탕으로 5지선다 문제를 생성하세요.
 
 교과서 내용:
 {context}
 
-문제 생성 규칙:
-1. 교과서 내용에 직접 관련된 문제.
-2. 중학교 1학년 수준에 맞는 명확한 문제.
-3. 5개의 선택지 (정답 1개, 매력적인 오답 4개).
-4. 상세하고 교육적인 해설.
-5. 문제 해결에 도움이 되는 힌트 목록 (최소 1개 이상).
-6. 문제의 핵심 내용을 담은 간결한 제목.
-7. 문제에 대한 부가적인 설명 (description).
-8. 관련 개념을 나타내는 태그 목록 (최소 1개 이상).
-9. 모든 내용은 한국어로 작성.
+요구사항:
+- 난이도: {difficulty} ({difficulty_guide})
+- 5개의 선택지 (정답 1개, 오답 4개)
+- 명확한 해설 포함
+- 학습에 도움이 되는 힌트 제공
+- 관련 태그 추가
 
-난이도 기준 ({difficulty}):
-{difficulty_guide}
+**JSON 형식으로만 응답하세요:**
 
-출력 형식 (JSON만 출력, 다른 설명 없이 JSON 객체만 반환):
 {{
     "title": "문제의 간결한 제목",
-    "description": "문제에 대한 부가적인 설명입니다.",
-    "content": "여기에 문제의 본문을 작성합니다.",
-    "options": ["1번 선택지", "2번 선택지", "3번 선택지", "4번 선택지", "5번 선택지"],
-    "correct_answer": 정답_번호(1-5 사이의 숫자),
-    "explanation": "정답에 대한 상세하고 친절한 해설입니다.",
-    "hints": ["문제 해결에 도움이 되는 첫 번째 힌트"],
-    "tags": ["관련_태그_1"]
+    "description": "문제에 대한 부가적인 설명",
+    "content": "문제 본문",
+    "options": ["선택지1", "선택지2", "선택지3", "선택지4", "선택지5"],
+    "correct_answer": 정답번호(1-5),
+    "explanation": "정답에 대한 상세하고 친절한 해설",
+    "hints": ["문제 해결에 도움이 되는 첫 번째 힌트", "추가 힌트(선택)"],
+    "tags": ["{subject}", "{unit}", "관련_개념"]
 }}
 """
         return prompt
@@ -327,7 +325,7 @@ class QuestionGenerator:
                                    unit: str,
                                    difficulty: str) -> Dict[str, Any]:
         """
-        생성된 문제 검증 및 정리 (모든 필드 필수)
+        생성된 문제 검증 및 정리 (간소화 버전)
 
         Args:
             response: LLM 응답
@@ -341,58 +339,55 @@ class QuestionGenerator:
         now = datetime.now().isoformat()
         ai_generation_id = f"{subject}_{unit}_{difficulty}_{len(self.question_history) + 1}"
 
-        # LLM 응답에서 데이터 추출 및 기본값 설정
-        title = response.get('title', 'Untitled').strip()
+        # 필수 필드 추출
+        title = response.get('title', f'{subject} {unit} 문제').strip()
         description = response.get('description', '').strip()
         content = response.get('content', '').strip()
         options = response.get('options', [])
-        correct_answer_num = response.get('correct_answer', 1)
+        correct_answer = response.get('correct_answer', 1)
         explanation = response.get('explanation', '').strip()
         hints = response.get('hints', [])
-        tags = response.get('tags', [])
+        tags = response.get('tags', [subject, unit])
 
-        # 데이터 변환 및 추가 필드 설정
+        # 정답 번호 검증
+        try:
+            correct_answer_int = int(correct_answer)
+            if not (1 <= correct_answer_int <= 5):
+                correct_answer_int = 1
+        except (ValueError, TypeError):
+            correct_answer_int = 1
+
+        # hints와 tags가 리스트인지 확인
+        if not isinstance(hints, list):
+            hints = [str(hints)] if hints else []
+        if not isinstance(tags, list):
+            tags = [str(tags)] if tags else [subject, unit]
+
+        # 문제 데이터 구성
         problem_data = {
-            'id': None,  # DB에서 자동 생성
-            'title': title if title else content[:50], # 제목 없으면 내용에서 일부 추출
+            'id': None,
+            'title': title,
             'description': description,
-            'content': content,
-            'type': 'multiple_choice', # 5지선다 유형
+            'question': content,  # 'question' 필드로 통일
+            'content': content,   # 하위 호환성을 위해 유지
+            'options': [str(opt).strip() for opt in options] if isinstance(options, list) else [],
+            'correct_answer': correct_answer_int,
+            'explanation': explanation,
+            'hints': [str(hint).strip() for hint in hints],
+            'tags': [str(tag).strip() for tag in tags],
             'difficulty': difficulty,
             'subject': subject,
-            'gradeLevel': 'Middle-1', # 중학교 1학년으로 가정
             'unit': unit,
-            'options': [str(opt).strip() for opt in options] if isinstance(options, list) else [],
-            'correctAnswer': str(correct_answer_num), # DB 스키마에 맞춰 문자열로 변환
-            'explanation': explanation,
-            'hints': [str(h).strip() for h in hints] if isinstance(hints, list) else [],
-            'tags': [str(t).strip() for t in tags] if isinstance(tags, list) else [],
-            'points': 10, # 기본 점수
-            'timeLimit': 60, # 기본 제한 시간 (초)
-            'isActive': True,
-            'isAIGenerated': True,
-            'aiGenerationId': ai_generation_id,
-            'qualityScore': None,
-            'reviewStatus': 'pending', # 검토 대기 상태
-            'reviewedAt': None,
-            'generationPrompt': None, # 필요시 프롬프트 저장
-            'contextChunkIds': None, # 필요시 컨텍스트 ID 저장
-            'modelName': self.llm_client.model_name,
-            'createdAt': now,
-            'updatedAt': now,
-            'deletedAt': None
+            'type': 'multiple_choice',
+            'is_ai_generated': True,
+            'ai_generation_id': ai_generation_id,
+            'model_name': self.llm_client.model_name,
+            'created_at': now,
         }
-        
-        # 정답 번호 검증 (1-5 사이의 숫자인지)
-        try:
-            if not (1 <= int(problem_data['correctAnswer']) <= 5):
-                problem_data['correctAnswer'] = '1'
-        except (ValueError, TypeError):
-            problem_data['correctAnswer'] = '1'
 
-        # 최종 데이터 유효성 검사
-        if not self.validate_question(problem_data):
-            raise ValueError("Generated question failed validation")
+        # 최소 유효성 검사
+        if not content or len(options) != 5:
+            raise ValueError("Invalid question format: missing content or incorrect number of options")
 
         return problem_data
 

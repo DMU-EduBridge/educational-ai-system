@@ -53,7 +53,8 @@ class Settings(BaseSettings):
     cache_dir: str = Field(default="./data/cache", description="Cache directory")
 
     class Config:
-        env_file = ".env"
+        # .env 파일을 프로젝트 루트에서 찾기
+        env_file = str(Path(__file__).resolve().parent.parent.parent.parent / ".env")
         env_file_encoding = 'utf-8'
         case_sensitive = False
         extra = "ignore"

@@ -32,7 +32,7 @@
   - OpenAI → Google Gemini 2.5 Flash
   - Langchain을 통한 통합 구현
   - 99% 이상 비용 절감
-  - 상세 내용: [MIGRATION_SUMMARY.md](./MIGRATION_SUMMARY.md)
+  - 상세 내용: [docs/MIGRATION_SUMMARY.md](./docs/MIGRATION_SUMMARY.md)
 
 ## 🏗️ 시스템 아키텍처
 
@@ -57,13 +57,27 @@ educational-ai-system/
 │   │   ├── vector_db/           # ChromaDB 벡터 DB
 │   │   ├── cache/               # 임베딩 캐시
 │   │   └── sample_textbooks/    # 샘플 교과서
-│   ├── tests/                   # 테스트 코드
-│   └── scripts/                 # 유틸리티 스크립트
+│   └── tests/                   # AI 서비스 단위 테스트
+├── tests/                       # 통합 테스트 스크립트
+│   ├── test_embedding.py        # 임베딩 테스트
+│   ├── test_vector_search.py    # 벡터 검색 테스트
+│   ├── test_rag_local.py        # RAG 파이프라인 테스트
+│   ├── test_question_gen.py     # 문제 생성 테스트
+│   ├── test_backend_api.py      # 백엔드 API 테스트
+│   └── test_all_units.py        # 전체 통합 테스트
+├── scripts/                     # 유틸리티 스크립트
+│   └── download_models.py       # 모델 다운로드
+├── docs/                        # 프로젝트 문서
+│   ├── COMPREHENSIVE_TEST_REPORT.md  # 테스트 보고서
+│   ├── ISSUE_RESOLUTION_REPORT.md    # 이슈 해결 보고서
+│   ├── GEMINI_MIGRATION.md          # Gemini 마이그레이션 가이드
+│   └── DOCKER_GUIDE.md              # Docker 사용 가이드
 ├── db/                          # SQLite 데이터베이스 (로컬)
 ├── logs/                        # 애플리케이션 로그
 ├── Dockerfile                   # Docker 이미지 정의
 ├── docker-compose.yml           # 다중 컨테이너 구성
 ├── pyproject.toml               # Python 의존성 관리
+├── main.py                      # 메인 진입점
 └── .env                         # 환경 변수 설정
 ```
 
@@ -335,7 +349,7 @@ python ai-services/src/main.py test-pipeline
 ### 단위 테스트
 
 ```bash
-# 모든 테스트 실행
+# AI 서비스 단위 테스트
 pytest ai-services/tests/
 
 # 특정 테스트 파일 실행
@@ -348,11 +362,25 @@ pytest --cov=ai-services/src ai-services/tests/
 ### 통합 테스트
 
 ```bash
-# Gemini API 통합 테스트
-python test_llm_only.py
+# 임베딩 테스트
+python tests/test_embedding.py
+python tests/test_local_embedding.py
+
+# 벡터 DB 및 RAG 테스트
+python tests/check_vectordb.py
+python tests/test_vector_search.py
+python tests/test_rag_local.py
+python tests/verify_rag.py
 
 # 문제 생성 테스트
-python test_question_gen.py
+python tests/test_question_gen.py
+python tests/test_question_from_db.py
+
+# 백엔드 API 테스트
+python tests/test_backend_api.py
+
+# 전체 통합 테스트
+python tests/test_all_units.py
 ```
 
 ## 📊 모니터링 및 로깅
@@ -526,9 +554,12 @@ ai-services/data/cache/
 
 ## 📚 추가 문서
 
-- [마이그레이션 가이드](./GEMINI_MIGRATION.md) - OpenAI에서 Gemini로의 전환
-- [마이그레이션 요약](./MIGRATION_SUMMARY.md) - 변경 사항 상세
-- [테스트 보고서](./TEST_REPORT.md) - Gemini API 통합 테스트 결과
+- [테스트 보고서](./docs/COMPREHENSIVE_TEST_REPORT.md) - 종합 테스트 결과
+- [이슈 해결 보고서](./docs/ISSUE_RESOLUTION_REPORT.md) - 해결된 이슈 상세
+- [Gemini 마이그레이션](./docs/GEMINI_MIGRATION.md) - OpenAI에서 Gemini로 전환
+- [마이그레이션 요약](./docs/MIGRATION_SUMMARY.md) - 변경 사항 상세
+- [Docker 가이드](./docs/DOCKER_GUIDE.md) - Docker 사용 방법
+- [단원 자동 감지](./docs/UNIT_AUTO_DETECTION_GUIDE.md) - 단원 자동 감지 기능
 
 ---
 

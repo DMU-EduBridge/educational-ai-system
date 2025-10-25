@@ -40,13 +40,14 @@ class VectorStore:
         # 컬렉션 가져오기 또는 생성
         try:
             self.collection = self.client.get_collection(name=collection_name)
-            self.logger.info(f"Loaded existing collection: {collection_name}")
+            doc_count = self.collection.count()
+            self.logger.info(f"Loaded existing collection: {collection_name} (path: {self.persist_directory}, {doc_count} documents)")
         except Exception:
             self.collection = self.client.create_collection(
                 name=collection_name,
                 metadata={"description": "Educational textbook embeddings for RAG"}
             )
-            self.logger.info(f"Created new collection: {collection_name}")
+            self.logger.info(f"Created new collection: {collection_name} (path: {self.persist_directory})")
 
     def add_documents(self,
                      documents: List[Document],

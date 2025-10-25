@@ -1,0 +1,14 @@
+[
+  {
+    "status": "success",
+    "filepath": "/Users/hyunjong_kim/Desktop/KHJ/dongyang/2025_2nd/graduate_project/educational-ai-system/ai-services/data/3rd_grade_textbook/비상 중3 수학 교과서.pdf",
+    "subject": "수학",
+    "unit": "통합교과서",
+    "publisher": "비상",
+    "filename": "비상 중3 수학 교과서.pdf",
+    "processed_chunks": 223,
+    "total_tokens": 188525,
+    "estimated_cost": 0.0,
+    "source_file": "비상 중3 수학 교과서.pdf"
+  }
+]

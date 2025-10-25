@@ -20,6 +20,7 @@ env/
 **/cache/
 **/test_data/
 **/logs/
+*.log
 
 # Local databases
 /ai_services/data/vector_db/
@@ -63,10 +64,12 @@ site/
 .uv/
 # uv.lock은 의존성 관리를 위해 버전 관리에 포함
 
-# Gemini generated files
-GEMINI_MIGRATION.md
-MIGRATION_SUMMARY.md
-TEST_REPORT.md
+# Temporary test files
+test_content.txt
+*.tmp
+
+# Documentation (included in docs/ directory)
+# Note: 문서는 docs/ 디렉토리에서 관리됨
 
 # Airflow generated files
 airflow/airflow.cfg
