@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 
 # 프로젝트 루트를 Python 경로에 추가
-project_root = Path(__file__).parent / "ai-services"
+project_root = Path(__file__).parent.parent / "ai-services"
 sys.path.insert(0, str(project_root))
 
 from src.utils.config import get_settings
