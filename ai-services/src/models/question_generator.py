@@ -363,26 +363,72 @@ class QuestionGenerator:
         if not isinstance(tags, list):
             tags = [str(tags)] if tags else [subject, unit]
 
-        # 문제 데이터 구성
+        # 난이도 매핑 (DB enum 형식에 맞춤)
+        difficulty_map = {
+            'easy': 'EASY',
+            'medium': 'MEDIUM',
+            'hard': 'HARD'
+        }
+        db_difficulty = difficulty_map.get(difficulty.lower(), 'MEDIUM')
+
+        # 과목 매핑 (DB enum 형식에 맞춤)
+        subject_map = {
+            '수학': 'MATH',
+            '과학': 'SCIENCE',
+            '영어': 'ENGLISH',
+            '국어': 'KOREAN',
+            '사회': 'SOCIAL_STUDIES',
+            '역사': 'HISTORY'
+        }
+        db_subject = subject_map.get(subject, 'MATH')
+
+        # correctAnswer는 선택지 텍스트로 저장 (DB 스키마에 맞춤)
+        correct_answer_text = str(options[correct_answer_int - 1]) if 0 < correct_answer_int <= len(options) else str(options[0])
+
+        # 문제 데이터 구성 (DB 테이블 구조에 맞춤)
         problem_data = {
-            'id': None,
+            # Primary fields
+            'id': None,  # DB에서 생성
             'title': title,
-            'description': description,
-            'question': content,  # 'question' 필드로 통일
-            'content': content,   # 하위 호환성을 위해 유지
-            'options': [str(opt).strip() for opt in options] if isinstance(options, list) else [],
-            'correct_answer': correct_answer_int,
-            'explanation': explanation,
-            'hints': [str(hint).strip() for hint in hints],
-            'tags': [str(tag).strip() for tag in tags],
-            'difficulty': difficulty,
-            'subject': subject,
+            'description': description if description else None,
+            'content': content,
+            'type': 'MULTIPLE_CHOICE',  # DB enum
+            'difficulty': db_difficulty,  # DB enum
+            'subject': db_subject,  # DB enum
+            'gradeLevel': 'MIDDLE_3',  # 중3 기본값
             'unit': unit,
-            'type': 'multiple_choice',
-            'is_ai_generated': True,
-            'ai_generation_id': ai_generation_id,
-            'model_name': self.llm_client.model_name,
-            'created_at': now,
+            
+            # Options and answer (JSONB)
+            'options': [str(opt).strip() for opt in options] if isinstance(options, list) else [],
+            'correctAnswer': correct_answer_text,
+            'explanation': explanation if explanation else None,
+            'hints': [str(hint).strip() for hint in hints] if hints else None,
+            'tags': [str(tag).strip() for tag in tags] if tags else None,
+            
+            # Scoring and limits
+            'points': 1,
+            'timeLimit': None,
+            
+            # Status flags
+            'isActive': True,
+            'isAIGenerated': True,
+            'aiGenerationId': ai_generation_id,
+            'qualityScore': None,
+            'reviewStatus': 'PENDING',
+            'status': 'DRAFT',
+            
+            # AI generation metadata
+            'modelName': self.llm_client.model_name,
+            'tokensUsed': None,  # LLM 클라이언트에서 가져와야 함
+            'costUsd': None,  # LLM 클라이언트에서 가져와야 함
+            
+            # Timestamps
+            'createdAt': now,
+            'updatedAt': now,
+            
+            # 하위 호환성을 위한 필드
+            'question': content,
+            'correct_answer': correct_answer_int,
         }
 
         # 최소 유효성 검사
