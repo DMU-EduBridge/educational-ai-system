@@ -62,6 +62,36 @@ class QuestionRequest(BaseModel):
     difficulty: str = Field("medium", description="문제 난이도", example="medium")
     count: int = Field(1, gt=0, le=10, description="생성할 문제 수")
 
+class ProblemResponse(BaseModel):
+    """DB Problem 테이블 형식에 맞춘 응답 모델"""
+    id: str | None
+    title: str
+    description: str | None
+    content: str
+    type: str
+    difficulty: str
+    subject: str
+    gradeLevel: str
+    unit: str
+    options: List[str]
+    correctAnswer: str
+    explanation: str | None
+    hints: List[str] | None
+    tags: List[str] | None
+    points: int
+    timeLimit: int | None
+    isActive: bool
+    isAIGenerated: bool
+    aiGenerationId: str
+    qualityScore: float | None
+    reviewStatus: str
+    status: str
+    modelName: str
+    tokensUsed: int | None
+    costUsd: float | None
+    createdAt: str
+    updatedAt: str
+
 class ChatRequest(BaseModel):
     user_id: str = Field(..., description="학생의 ID", example="user_1234")
     user_message: str = Field(..., description="사용자의 메시지", example="개념을 설명해줄래?")
@@ -78,17 +108,54 @@ def read_root():
     return {"status": "error", "message": "RAG Pipeline is not initialized."}
 
 
-@app.post("/generate-question", summary="새로운 문제 생성")
+@app.post("/generate-question", summary="새로운 문제 생성", response_model=List[ProblemResponse])
 async def generate_question_endpoint(request: QuestionRequest) -> List[Dict[str, Any]]:
     if not pipeline:
         raise HTTPException(status_code=503, detail="RAG Pipeline is not available.")
     try:
-        return pipeline.generate_questions(
+        questions = pipeline.generate_questions(
             subject=request.subject,
             unit=request.unit,
             difficulty=request.difficulty,
             count=request.count,
         )
+        
+        # DB 테이블 형식에 맞춰 응답 변환
+        db_formatted_questions = []
+        for q in questions:
+            # 필요한 필드만 선택하여 DB 형식으로 변환
+            db_question = {
+                'id': q.get('id'),
+                'title': q.get('title'),
+                'description': q.get('description'),
+                'content': q.get('content'),
+                'type': q.get('type'),
+                'difficulty': q.get('difficulty'),
+                'subject': q.get('subject'),
+                'gradeLevel': q.get('gradeLevel'),
+                'unit': q.get('unit'),
+                'options': q.get('options'),
+                'correctAnswer': q.get('correctAnswer'),
+                'explanation': q.get('explanation'),
+                'hints': q.get('hints'),
+                'tags': q.get('tags'),
+                'points': q.get('points', 1),
+                'timeLimit': q.get('timeLimit'),
+                'isActive': q.get('isActive', True),
+                'isAIGenerated': q.get('isAIGenerated', True),
+                'aiGenerationId': q.get('aiGenerationId'),
+                'qualityScore': q.get('qualityScore'),
+                'reviewStatus': q.get('reviewStatus', 'PENDING'),
+                'status': q.get('status', 'DRAFT'),
+                'modelName': q.get('modelName'),
+                'tokensUsed': q.get('tokensUsed'),
+                'costUsd': q.get('costUsd'),
+                'createdAt': q.get('createdAt'),
+                'updatedAt': q.get('updatedAt')
+            }
+            db_formatted_questions.append(db_question)
+        
+        return db_formatted_questions
     except Exception as e:
         logger.error(f"An unexpected error occurred during question generation: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
