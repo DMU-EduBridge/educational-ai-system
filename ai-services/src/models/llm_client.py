@@ -357,14 +357,15 @@ class LLMClient:
     def _clean_json_response(self, response: str) -> str:
         """
         JSON 응답 정리 및 추출
-
+        
         Args:
             response: 원본 응답
-
+        
         Returns:
             str: 정리된 JSON 문자열 (실패시 빈 문자열)
         """
         import re
+        import json
         
         # 코드 블록 제거
         response = response.strip()
@@ -376,13 +377,13 @@ class LLMClient:
             response = response[3:]
         if response.endswith('```'):
             response = response[:-3]
-
+        
         # 앞뒤 공백 제거
         response = response.strip()
         
         # JSON 객체 추출 시도 (중괄호로 시작하는 첫 번째 완전한 JSON 객체)
         try:
-            # { 로 시작하고 } 로 끝나는 부분 찾기
+            # { 로 시작하는 부분 찾기
             start = response.find('{')
             if start != -1:
                 # 중괄호 균형을 맞춰 JSON 객체 추출
@@ -410,15 +411,30 @@ class LLMClient:
                         elif char == '}':
                             brace_count -= 1
                             if brace_count == 0:
-                                return response[start:i+1]
-                
+                                # 완전한 JSON 객체를 찾았으면 파싱 시도
+                                candidate = response[start:i+1]
+                                try:
+                                    json.loads(candidate)  # 유효한 JSON인지 확인
+                                    return candidate
+                                except json.JSONDecodeError:
+                                    # 파싱 실패시 계속 진행
+                                    pass
+        
         except Exception as e:
             self.logger.warning(f"Error extracting JSON: {e}")
         
-        # 실패 시 원본 반환
-        return response        # [ ... ] 패턴 찾기
-        json_match = re.search(r'\[.*\]', response, re.DOTALL)
-        if json_match:
-            return json_match.group(0)
-
+        # 배열 형식 시도 [ ... ]
+        try:
+            array_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if array_match:
+                candidate = array_match.group(0)
+                try:
+                    json.loads(candidate)  # 유효한 JSON인지 확인
+                    return candidate
+                except json.JSONDecodeError:
+                    pass
+        except Exception as e:
+            self.logger.warning(f"Error extracting JSON array: {e}")
+        
+        # 모든 시도 실패시 원본 반환
         return response
