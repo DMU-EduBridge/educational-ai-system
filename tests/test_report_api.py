@@ -6,7 +6,7 @@ import requests
 import json
 
 # API 엔드포인트
-url = "http://localhost:8001/generate-report"
+url = "http://localhost:8000/generate-report"
 
 # 요청 데이터 (실제 학생 ID 사용)
 data = {
@@ -71,7 +71,7 @@ except requests.exceptions.Timeout:
 except requests.exceptions.ConnectionError:
     print("❌ 연결 오류: 서버에 연결할 수 없습니다.")
     print("백엔드 서버가 실행 중인지 확인하세요:")
-    print("  cd backend && uvicorn main:app --reload --port 8001")
+    print("  cd backend && uvicorn main:app --reload --port 8000")
     
 except Exception as e:
     print(f"❌ 예상치 못한 오류: {str(e)}")
