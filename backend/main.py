@@ -18,6 +18,8 @@ try:
     from src.main import RAGPipeline
     from src.utils.logger import get_logger
     from src.chatbot.tutor import ChatbotTutor
+    from src.analysis.student_analyzer import StudentAnalyzer
+    from src.models.llm_client import LLMClient
 except ImportError as e:
     print(f"Error importing from ai-services: {e}")
     sys.exit(1)
@@ -99,6 +101,16 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     ai_response: str
 
+class ReportRequest(BaseModel):
+    user_id: str = Field(..., description="분석할 학생의 ID", example="user_1234")
+
+class ReportResponse(BaseModel):
+    user_id: str
+    report_text: str
+    weakest_unit: str
+    performance_summary: Dict[str, Any]
+    generated_at: str
+
 # --- REST API 엔드포인트 --- #
 @app.get("/", summary="API 상태 확인")
 def read_root():
@@ -159,6 +171,52 @@ async def generate_question_endpoint(request: QuestionRequest) -> List[Dict[str,
     except Exception as e:
         logger.error(f"An unexpected error occurred during question generation: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+@app.post("/generate-report", summary="학생 학습 리포트 생성", response_model=ReportResponse)
+async def generate_report_endpoint(request: ReportRequest) -> Dict[str, Any]:
+    """
+    학생의 학습 데이터를 분석하여 주간 학습 리포트를 생성합니다.
+    
+    - **user_id**: 분석할 학생의 ID
+    
+    Returns:
+    - 학생의 학습 분석 리포트 (강점, 약점, 권장사항 포함)
+    """
+    if not pipeline:
+        raise HTTPException(status_code=503, detail="RAG Pipeline is not available.")
+    
+    try:
+        logger.info(f"Generating report for user: {request.user_id}")
+        
+        # LLM 클라이언트와 StudentAnalyzer 초기화
+        llm_client = pipeline.llm_client
+        analyzer = StudentAnalyzer(llm_client)
+        
+        # 리포트 생성
+        report_data = analyzer.analyze(request.user_id)
+        
+        # 에러 체크
+        if "error" in report_data:
+            raise HTTPException(status_code=404, detail=report_data["error"])
+        
+        # 응답 형식 구성
+        from datetime import datetime
+        response = {
+            "user_id": request.user_id,
+            "report_text": report_data.get("report_text", ""),
+            "weakest_unit": report_data.get("analysis_data", {}).get("weakest_unit", ""),
+            "performance_summary": report_data.get("analysis_data", {}).get("performance_summary", {}),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        logger.info(f"Report generated successfully for user: {request.user_id}")
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating report for user {request.user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 @app.post("/chat/message", summary="챗봇과 메시지 주고받기 (REST)")
 async def chat_message_endpoint(request: ChatRequest) -> ChatResponse:
