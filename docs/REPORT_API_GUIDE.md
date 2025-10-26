@@ -41,7 +41,7 @@ POST /generate-report
 ### 엔드포인트
 
 ```
-POST http://localhost:8001/generate-report
+POST http://localhost:8000/generate-report
 ```
 
 ### 요청 형식
@@ -95,7 +95,7 @@ Content-Type: application/json
 ```python
 import requests
 
-url = "http://localhost:8001/generate-report"
+url = "http://localhost:8000/generate-report"
 data = {"user_id": "cmgp37il10002eg3ztaonfui8"}
 
 response = requests.post(url, json=data, timeout=120)
@@ -113,7 +113,7 @@ else:
 ### cURL
 
 ```bash
-curl -X POST http://localhost:8001/generate-report \
+curl -X POST http://localhost:8000/generate-report \
   -H "Content-Type: application/json" \
   -d '{"user_id": "cmgp37il10002eg3ztaonfui8"}'
 ```
@@ -122,7 +122,7 @@ curl -X POST http://localhost:8001/generate-report \
 
 ```javascript
 const generateReport = async (userId) => {
-  const response = await fetch('http://localhost:8001/generate-report', {
+  const response = await fetch('http://localhost:8000/generate-report', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -448,7 +448,7 @@ GET /download-report/{user_id}
 ## 📞 문의
 
 - **기술 문의**: GitHub Issues
-- **API 문서**: http://localhost:8001/docs (FastAPI Swagger UI)
+- **API 문서**: http://localhost:8000/docs (FastAPI Swagger UI)
 - **테스트**: `uv run python tests/test_report_api.py`
 
 ---
