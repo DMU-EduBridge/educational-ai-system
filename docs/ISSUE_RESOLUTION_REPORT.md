@@ -71,9 +71,12 @@ self.settings.google_api_key = os.getenv('GOOGLE_API_KEY', 'test-key')
 ### 백엔드 API 테스트 성공 사례
 
 ```bash
-$ curl -X POST http://localhost:8001/generate-question \
+### 백엔드 API 테스트
+
+```bash
+$ curl -X POST http://localhost:8000/generate-question \
   -H "Content-Type: application/json" \
-  -d '{"subject":"수학","unit":"이차함수","difficulty":"easy","count":1}'
+  -d '{"subject": "수학", "unit": "이차방정식", "difficulty": "medium", "count": 1}'
 
 # 응답 (정상)
 [{
