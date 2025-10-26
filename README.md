@@ -1,7 +1,7 @@
 # 🎓 Educational AI System
 
 > 교과서 기반 AI 문제 생성 및 주간 학생 리포트 시스템
-> RAG(Retrieval-Augmented Generation)와 Airflow를 활용한 자동 문제 생성 및 주간 학생 데이터 분석/리포팅
+> RAG(Retrieval-Augmented Generation)와 REST API를 활용한 자동 문제 생성 및 실시간 학생 데이터 분석/리포팅
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green.svg)](https://fastapi.tiangolo.com/)
@@ -14,19 +14,26 @@
 
 ## 📋 프로젝트 개요
 
-이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하고, **Apache Airflow를 통해 학생의 주간 학습 로그를 분석하여 종합 리포트를 생성**하고 데이터베이스에 저장하는 AI 시스템입니다.
+이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하고, **REST API를 통해 학생의 학습 로그를 실시간으로 분석하여 종합 리포트를 생성**하는 AI 시스템입니다.
 
 ### ✨ 주요 기능
 
 - 📚 **교과서 텍스트 처리**: .txt, .md, .pdf 파일을 지능적으로 청킹
-- 🧠 **AI 문제 생성**: `Google Gemini 1.5`를 사용한 교육적 5지선다 문제 생성 (Langchain 통합)
-- � **벡터 검색**: Google Embeddings를 활용한 의미 기반 문서 검색
-- �👨‍🎓 **주간 리포트 자동 생성**: Airflow를 사용하여 매주 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성하여 `teacher_reports` DB 테이블에 저장
-- 🚀 **API 제공**: FastAPI를 활용하여 문제 생성 API 제공
+- 🧠 **AI 문제 생성**: `Google Gemini 2.5 Flash`를 사용한 교육적 5지선다 문제 생성 (Langchain 통합)
+- 🔍 **벡터 검색**: Google Embeddings / 로컬 임베딩을 활용한 의미 기반 문서 검색
+- 👨‍🎓 **학습 리포트 API**: REST API를 통해 실시간으로 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성
+- 🚀 **RESTful API**: FastAPI를 활용한 문제 생성 및 리포트 생성 API 제공
+- 💬 **AI 챗봇**: WebSocket 기반 실시간 학습 지원 챗봇
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
 - 💰 **비용 효율**: OpenAI 대비 99% 이상 비용 절감
 
 ### 🆕 최근 업데이트
+
+- ✅ **리포트 생성 API 추가** (2025.10.25)
+  - Airflow → REST API 방식으로 변경
+  - 실시간 리포트 생성 지원
+  - 프론트엔드 통합 용이
+  - 상세 내용: [docs/REPORT_API_GUIDE.md](./docs/REPORT_API_GUIDE.md)
 
 - ✅ **Google Gemini API로 마이그레이션** (2025.10.21)
   - OpenAI → Google Gemini 2.5 Flash
@@ -86,8 +93,9 @@ educational-ai-system/
 1. **RAG Pipeline**: 교과서 텍스트를 벡터화하고 의미 기반 검색
 2. **Question Generator**: Gemini API를 사용한 5지선다 문제 생성
 3. **Student Analyzer**: 학습 로그 분석 및 약점 파악
-4. **AI Chatbot**: 실시간 학습 지원 챗봇
-5. **Weekly Report Generator**: Airflow를 통한 자동화된 주간 리포트
+4. **Report API**: REST API를 통한 실시간 학습 리포트 생성
+5. **AI Chatbot**: WebSocket 기반 실시간 학습 지원 챗봇
+6. **FastAPI Backend**: RESTful API 서버
 
 ## 🚀 빠른 시작
 
