@@ -5,8 +5,8 @@
 import requests
 import json
 
-# API 엔드포인트 (포트 8001로 수정)
-url = "http://localhost:8001/generate-question"
+# API 엔드포인트
+url = "http://localhost:8000/generate-question"
 
 # 요청 데이터
 data = {
