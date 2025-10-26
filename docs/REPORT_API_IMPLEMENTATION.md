@@ -153,7 +153,7 @@ $ uv run python tests/test_report_api.py
 
 ### HTTP 요청
 ```bash
-curl -X POST http://localhost:8001/generate-report \
+curl -X POST http://localhost:8000/generate-report \
   -H "Content-Type: application/json" \
   -d '{"user_id": "cmgp37il10002eg3ztaonfui8"}'
 ```
@@ -162,7 +162,7 @@ curl -X POST http://localhost:8001/generate-report \
 ```python
 import requests
 
-url = "http://localhost:8001/generate-report"
+url = "http://localhost:8000/generate-report"
 data = {"user_id": "cmgp37il10002eg3ztaonfui8"}
 
 response = requests.post(url, json=data, timeout=120)
@@ -174,7 +174,7 @@ print(f"정답률: {report['performance_summary']['overall_correct_rate']}")
 
 ### JavaScript (fetch)
 ```javascript
-const response = await fetch('http://localhost:8001/generate-report', {
+const response = await fetch('http://localhost:8000/generate-report', {
   method: 'POST',
   headers: {'Content-Type': 'application/json'},
   body: JSON.stringify({user_id: 'cmgp37il10002eg3ztaonfui8'})
@@ -310,12 +310,12 @@ CREATE TABLE problems (
 ### 1. 백엔드 서버 시작
 ```bash
 cd backend
-uv run uvicorn main:app --reload --port 8001
+uv run uvicorn main:app --reload --port 8000
 ```
 
 ### 2. API 문서 확인
 ```
-http://localhost:8001/docs
+http://localhost:8000/docs
 ```
 
 ### 3. 프론트엔드 통합 예시
@@ -334,7 +334,7 @@ interface ReportResponse {
 }
 
 const generateReport = async (userId: string): Promise<ReportResponse> => {
-  const response = await fetch('http://localhost:8001/generate-report', {
+  const response = await fetch('http://localhost:8000/generate-report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: userId })
@@ -394,7 +394,7 @@ import requests
 
 def request_report(user_id: str):
     response = requests.post(
-        "http://localhost:8001/generate-report",
+        "http://localhost:8000/generate-report",
         json={"user_id": user_id},
         timeout=120
     )
