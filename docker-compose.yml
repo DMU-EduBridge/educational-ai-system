@@ -51,63 +51,6 @@ services:
     networks:
       - eduai_network
 
-  # Airflow Webserver
-  airflow-webserver:
-    build: .
-    container_name: educational_ai_airflow_webserver
-    command: bash -c "/app/init_airflow.sh && /app/.venv/bin/airflow webserver --port 8080"
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      - AIRFLOW_HOME=/app/airflow
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-your_secret_key_here}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
-      - PYTHONPATH=/app
-    volumes:
-      - ./airflow:/app/airflow
-      - ./ai-services:/app/ai-services
-      - ./logs:/app/logs
-      - ./.env:/app/.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - eduai_network
-
-  # Airflow Scheduler
-  airflow-scheduler:
-    build: .
-    container_name: educational_ai_airflow_scheduler
-    command: /app/.venv/bin/airflow scheduler
-    env_file:
-      - .env
-    environment:
-      - AIRFLOW_HOME=/app/airflow
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eduai}:${POSTGRES_PASSWORD:-eduai2025}@postgres:5432/${POSTGRES_DB:-educational_ai}
-      - PYTHONPATH=/app
-    volumes:
-      - ./airflow:/app/airflow
-      - ./ai-services:/app/ai-services
-      - ./logs:/app/logs
-      - ./.env:/app/.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      airflow-webserver:
-        condition: service_started
-    restart: unless-stopped
-    networks:
-      - eduai_network
-
 volumes:
   postgres_data:
     driver: local
@@ -115,4 +58,3 @@ volumes:
 networks:
   eduai_network:
     driver: bridge
-

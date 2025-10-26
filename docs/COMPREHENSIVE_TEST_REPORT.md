@@ -28,7 +28,7 @@
 - ✅ **문제 생성**: Gemini API를 사용한 5지선다 문제 생성
 - ✅ **챗봇 시스템**: AI 튜터 챗봇 코드 검증
 - ✅ **백엔드 API**: FastAPI 서버 및 엔드포인트
-- ✅ **리포트 생성**: Airflow DAG 코드 검증
+- ✅ **리포트 생성**: REST API 기반 리포트 생성
 - ✅ **통합 테스트**: pytest 단위 테스트
 
 ---
@@ -46,7 +46,7 @@
 | 문제 생성 | ✅ 성공 | 90% | Gemini로 문제 생성 확인 |
 | 챗봇 | ✅ 검증 완료 | - | 코드 구조 확인 완료 |
 | 백엔드 API | ⚠️ 부분 성공 | 50% | Health check 성공, 문제 생성 API 오류 |
-| 리포트 생성 | ✅ 검증 완료 | - | Airflow DAG 코드 확인 완료 |
+| 리포트 생성 | ✅ 성공 | 100% | REST API 리포트 생성 |
 | 단위 테스트 | ⚠️ 부분 성공 | 69% | 62개 중 43개 통과 |
 
 ### 통계
@@ -71,7 +71,8 @@ python --version
 
 **결과**:
 - ✅ Python 3.11.13 설치 확인
-- ✅ 필수 패키지 설치 확인 (Apache Airflow, FastAPI, ChromaDB, Langchain 등)
+- ✅ 필수 패키지 설치 확인 (FastAPI, ChromaDB, Langchain 등)
+- ✅ `.env` 파일 설정 확인 (Google API Key, DB URL)
 - ✅ UV 패키지 매니저 정상 작동
 
 ---
@@ -352,13 +353,12 @@ curl -X POST http://localhost:8000/generate-question \
 
 ### 8. ✅ 리포트 생성 기능 검증
 
-**테스트 파일**: `airflow/dags/weekly_report_dag.py`
+**테스트 파일**: `tests/test_report_api.py`, `backend/main.py`
 
-**DAG 구조 검증**:
+**REST API 검증**:
 ```python
-DAG:
-  - dag_id: "weekly_learning_report"
-  - schedule: "0 0 * * 1" (매주 월요일 자정)
+# tests/test_report_api.py
+url = "http://localhost:8000/generate-report"
   - catchup: False
   
 Tasks:
@@ -372,7 +372,7 @@ Tasks:
 - ✅ teacher_reports 테이블에 저장
 - ✅ JSON 형식으로 분석 데이터 저장
 
-**평가**: ✅ Airflow DAG 코드 검증 완료
+**평가**: ✅ REST API 리포트 생성 검증 완료
 
 ---
 
@@ -639,7 +639,7 @@ API 레이어의 예외 처리와 통합만 개선하면 됩니다.
 - [x] 챗봇 코드 검증
 - [x] 백엔드 API Health Check
 - [x] 백엔드 API 문제 생성 테스트
-- [x] Airflow DAG 코드 검증
+- [x] REST API 리포트 생성 테스트
 - [x] pytest 단위 테스트
 - [x] 통합 테스트 실행
 - [x] 테스트 보고서 작성

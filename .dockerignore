@@ -52,13 +52,6 @@ temp/
 # Vector DB (로컬 데이터 제외)
 ai-services/data/vector_db/
 
-# Airflow
-airflow/logs/
-airflow/*.pid
-airflow/*.err
-airflow/*.out
-airflow/airflow.db
-
 # Testing
 .pytest_cache/
 .coverage

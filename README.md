@@ -5,7 +5,6 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green.svg)](https://fastapi.tiangolo.com/)
-[![Airflow](https://img.shields.io/badge/Airflow-Workflow-blue.svg)](https://airflow.apache.org/)
 [![Google Gemini](https://img.shields.io/badge/Google-Gemini%201.5-blue.svg)](https://ai.google.dev)
 [![Langchain](https://img.shields.io/badge/Langchain-Integration-green.svg)](https://python.langchain.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-orange.svg)](https://chromadb.com)
@@ -30,8 +29,7 @@
 ### 🆕 최근 업데이트
 
 - ✅ **리포트 생성 API 추가** (2025.10.25)
-  - Airflow → REST API 방식으로 변경
-  - 실시간 리포트 생성 지원
+  - REST API 기반 실시간 리포트 생성
   - 프론트엔드 통합 용이
   - 상세 내용: [docs/REPORT_API_GUIDE.md](./docs/REPORT_API_GUIDE.md)
 
@@ -45,11 +43,6 @@
 
 ```
 educational-ai-system/
-├── airflow/                      # Apache Airflow 설정 및 DAG
-│   ├── dags/
-│   │   └── weekly_report_dag.py # 주간 리포트 생성 DAG
-│   ├── logs/                     # Airflow 로그
-│   └── airflow.cfg               # Airflow 설정 파일
 ├── backend/                      # FastAPI 백엔드
 │   └── main.py                   # API 엔드포인트 정의
 ├── ai-services/                  # AI 서비스 코어
@@ -179,7 +172,11 @@ uv run uvicorn main:app --reload --port 8000
 nohup uv run uvicorn main:app --reload --port 8000 > ../logs/backend.log 2>&1 &
 ```
 
-**참고**: Airflow는 현재 선택적 기능입니다. 리포트 생성은 REST API(`/generate-report`)를 통해 실시간으로 가능합니다.
+### 4. 접속 URL
+
+- **FastAPI 백엔드**: http://localhost:8000
+- **API 문서 (Swagger)**: http://localhost:8000/docs
+- **PostgreSQL**: localhost:5432 (Neon 클라우드 DB 사용)
 
 #### Docker 환경
 
@@ -189,21 +186,18 @@ docker-compose up -d
 
 # 특정 서비스만 시작
 docker-compose up -d backend
-docker-compose up -d airflow-webserver airflow-scheduler
 
 # 서비스 상태 확인
 docker-compose ps
 
 # 로그 확인
 docker-compose logs -f backend
-docker-compose logs -f airflow-webserver
 ```
 
 ### 5. 접속 URL
 
 - **FastAPI 백엔드**: http://localhost:8000
 - **API 문서 (Swagger)**: http://localhost:8000/docs
-- **Airflow UI**: http://localhost:8080 (admin/admin)
 - **PostgreSQL**: localhost:5432 (Neon 클라우드 DB 사용)
 
 ## 📚 API 엔드포인트
@@ -458,11 +452,9 @@ uv run python tests/test_all_units.py
 ```bash
 # Docker 환경
 docker-compose logs -f backend
-docker-compose logs -f airflow-scheduler
 
 # 로컬 환경
 tail -f logs/app.log
-tail -f airflow/logs/scheduler/latest/*.log
 ```
 
 ### API 성능 모니터링
@@ -560,7 +552,8 @@ docker-compose logs -f
 
 # 특정 서비스 로그
 docker-compose logs -f backend
-docker-compose logs -f airflow-webserver
+# Docker 로그 확인
+docker-compose logs -f backend
 
 # 최근 100줄 로그
 docker-compose logs --tail=100 backend
@@ -597,7 +590,6 @@ docker-compose up -d postgres
 # .env 파일 (절대 Git에 커밋하지 마세요!)
 GOOGLE_API_KEY=your_actual_key_here
 POSTGRES_PASSWORD=strong_random_password
-AIRFLOW_SECRET_KEY=generate_secure_random_key
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
 ```
 
@@ -637,14 +629,13 @@ ai-services/data/cache/
 - [Google Gemini API](https://ai.google.dev) - 강력한 LLM 제공
 - [Langchain](https://python.langchain.com) - LLM 통합 프레임워크
 - [FastAPI](https://fastapi.tiangolo.com) - 고성능 API 프레임워크
-- [Apache Airflow](https://airflow.apache.org) - 워크플로우 자동화
 - [ChromaDB](https://chromadb.com) - 벡터 데이터베이스
 
 ## 📚 추가 문서
 
 ### 주요 문서
 - **[리포트 API 가이드](./docs/REPORT_API_GUIDE.md)** ⭐ - 학습 리포트 생성 API 사용법
-- **[리포트 API 구현 보고서](./docs/REPORT_API_IMPLEMENTATION.md)** - Airflow → REST API 전환 상세
+- **[리포트 API 구현 보고서](./docs/REPORT_API_IMPLEMENTATION.md)** - REST API 기반 리포트 생성
 - **[문제 생성 테스트 보고서](./docs/QUESTION_GENERATION_TEST_REPORT.md)** - 문제 생성 기능 테스트 결과
 - **[DB 스키마 매핑 가이드](./docs/DB_SCHEMA_MAPPING.md)** - PostgreSQL Problem 테이블 매핑
 

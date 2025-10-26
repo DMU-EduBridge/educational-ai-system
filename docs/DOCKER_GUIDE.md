@@ -30,14 +30,22 @@ nano .env  # 또는 vim, code 등
 
 **필수 설정**:
 ```bash
-# Google Gemini API Key (필수!)
-GOOGLE_API_KEY=your_actual_api_key_here
+## 🔐 환경 변수 설정
 
-# PostgreSQL 비밀번호 변경 (권장)
-POSTGRES_PASSWORD=your_secure_password_here
+`.env` 파일을 생성하고 다음 변수들을 설정하세요:
 
-# Airflow Secret Key 생성 (권장)
-AIRFLOW_SECRET_KEY=$(openssl rand -hex 32)
+```bash
+# Google API Key (필수)
+GOOGLE_API_KEY=your_google_api_key_here
+
+# PostgreSQL 설정
+POSTGRES_USER=eduai
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=educational_ai
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
+
+자세한 설정은 `.env.example` 파일을 참조하세요.
 ```
 
 ### 3단계: 서비스 실행
@@ -53,21 +61,14 @@ docker-compose logs -f
 ### 4단계: 서비스 확인
 
 - **FastAPI 백엔드**: http://localhost:8000/docs
-- **Airflow UI**: http://localhost:8080 (admin/admin)
 - **헬스 체크**: http://localhost:8000/health
 
 ## 🔧 개별 서비스 관리
 
-### FastAPI 백엔드만 실행
+### FastAPI 백엔드 실행
 
 ```bash
 docker-compose up -d postgres backend
-```
-
-### Airflow만 실행
-
-```bash
-docker-compose up -d postgres airflow-webserver airflow-scheduler
 ```
 
 ### 서비스 재시작
@@ -118,8 +119,8 @@ lsof -i :5432
 **해결**:
 ```bash
 # Docker 메모리 할당 증가 (Docker Desktop 설정)
-# 또는 불필요한 서비스 중지
-docker-compose stop airflow-scheduler
+# 또는 서비스 재시작
+docker-compose restart backend
 ```
 
 ### 3. API 키 오류
@@ -160,9 +161,8 @@ docker-compose up -d
 # 모든 서비스
 docker-compose logs -f
 
-# 특정 서비스
+# 특정 서비스만
 docker-compose logs -f backend
-docker-compose logs -f airflow-webserver
 ```
 
 ### 컨테이너 내부 접속
@@ -308,7 +308,6 @@ docker volume inspect educational-ai-system_postgres_data
 
 - [ ] `.env` 파일이 `.gitignore`에 포함되어 있음
 - [ ] PostgreSQL 비밀번호를 기본값에서 변경
-- [ ] Airflow Secret Key 생성 및 설정
 - [ ] 프로덕션에서 DEBUG=false 설정
 - [ ] 불필요한 포트 노출 제거
 - [ ] 정기적인 백업 스케줄 설정

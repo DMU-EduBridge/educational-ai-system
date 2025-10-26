@@ -36,7 +36,6 @@ RUN uv sync --no-dev
 # 나머지 애플리케이션 코드를 컨테이너의 작업 디렉토리로 복사합니다.
 COPY ./ai-services /app/ai-services
 COPY ./backend /app/backend
-COPY ./airflow /app/airflow
 COPY .env.example /app/.env
 
 # 7. 데이터 디렉토리 생성
@@ -47,33 +46,16 @@ RUN mkdir -p /app/ai-services/data/vector_db \
     /app/logs
 
 # 8. 포트 노출
-# FastAPI: 8000, Airflow Webserver: 8080, Airflow Flower (optional): 5555
-EXPOSE 8000 8080
+# FastAPI: 8000
+EXPOSE 8000
 
 # 9. 환경 변수 설정
 ENV PYTHONPATH=/app:${PYTHONPATH}
-ENV AIRFLOW_HOME=/app/airflow
 
-# 10. Airflow 초기화 스크립트 생성
-RUN echo '#!/bin/bash\n\
-if [ ! -f "$AIRFLOW_HOME/airflow.db" ]; then\n\
-  echo "Initializing Airflow database..."\n\
-  /app/.venv/bin/airflow db migrate\n\
-  /app/.venv/bin/airflow users create \\\n\
-    --username admin \\\n\
-    --password admin \\\n\
-    --firstname Admin \\\n\
-    --lastname User \\\n\
-    --role Admin \\\n\
-    --email admin@example.com\n\
-fi\n\
-' > /app/init_airflow.sh && chmod +x /app/init_airflow.sh
-
-# 11. 헬스체크 스크립트 생성
+# 10. 헬스체크 스크립트 생성
 RUN echo '#!/bin/bash\n\
 curl -f http://localhost:8000/health || exit 1\n\
 ' > /app/healthcheck.sh && chmod +x /app/healthcheck.sh
 
-# 12. 애플리케이션 실행 명령어
-# 기본적으로 FastAPI 서버만 실행 (Airflow는 docker-compose에서 별도 컨테이너로 실행)
+# 11. 애플리케이션 실행 명령어
 CMD ["/app/.venv/bin/uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

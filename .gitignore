@@ -23,7 +23,7 @@ env/
 *.log
 
 # Local databases
-/ai_services/data/vector_db/
+ai-services/data/vector_db/
 
 
 # IDE and editor files
@@ -71,8 +71,6 @@ test_content.txt
 # Documentation (included in docs/ directory)
 # Note: 문서는 docs/ 디렉토리에서 관리됨
 
-# Airflow generated files
-airflow/airflow.cfg
-airflow/airflow.db
-airflow/airflow.db-shm
-airflow/airflow.db-wal
+# Data and cache
+data/cache/
+ai-services/data/cache/

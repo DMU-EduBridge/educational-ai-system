@@ -21,7 +21,7 @@ def save_report_to_db(user_id: str, report_data: dict):
     content = report_data.get("report_text", "")
     analysis_data_json = json.dumps(report_data.get("analysis_data", {}), ensure_ascii=False)
     students_json = json.dumps([{"id": user_id}])
-    created_by = "airflow_dag"
+    created_by = "api"
     now = datetime.utcnow()
 
     query = """
