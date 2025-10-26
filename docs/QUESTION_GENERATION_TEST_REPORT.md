@@ -324,13 +324,13 @@ HTTP 500: An internal error occurred.
 ```
 
 **원인:**
-- 서버가 8000 포트가 아닌 8001 포트에서 실행 중
-- 테스트 스크립트의 포트 불일치
+- 서버가 8000 포트에서 실행 중
+- 테스트 스크립트의 포트 설정
 
 **해결:**
 ```python
 # test_backend_api.py
-url = "http://localhost:8001/generate-question"  # 8000 → 8001
+url = "http://localhost:8000/generate-question"
 ```
 
 **결과:**
