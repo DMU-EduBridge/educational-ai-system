@@ -168,16 +168,18 @@ DATABASE_URL=postgresql://eduai:eduai2025@localhost:5432/educational_ai
 # 가상 환경 활성화
 source .venv/bin/activate
 
-# FastAPI 백엔드 서버 실행
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+# FastAPI 백엔드 서버 실행 (포트 8000)
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# 새 터미널에서 Airflow 웹서버 실행
-export AIRFLOW_HOME=$(pwd)/airflow
-airflow webserver --port 8080
+# 또는 UV를 사용하여 실행
+uv run uvicorn main:app --reload --port 8000
 
-# 또 다른 터미널에서 Airflow 스케줄러 실행
-airflow scheduler
+# 백그라운드 실행 (선택사항)
+nohup uv run uvicorn main:app --reload --port 8000 > ../logs/backend.log 2>&1 &
 ```
+
+**참고**: Airflow는 현재 선택적 기능입니다. 리포트 생성은 REST API(`/generate-report`)를 통해 실시간으로 가능합니다.
 
 #### Docker 환경
 
@@ -202,7 +204,7 @@ docker-compose logs -f airflow-webserver
 - **FastAPI 백엔드**: http://localhost:8000
 - **API 문서 (Swagger)**: http://localhost:8000/docs
 - **Airflow UI**: http://localhost:8080 (admin/admin)
-- **PostgreSQL**: localhost:5432
+- **PostgreSQL**: localhost:5432 (Neon 클라우드 DB 사용)
 
 ## 📚 API 엔드포인트
 
@@ -212,8 +214,9 @@ docker-compose logs -f airflow-webserver
 
 #### 헬스 체크
 
-- **GET** `/health`
+- **GET** `/`
 - **설명**: 서버 상태 확인
+- **응답**: `{"status": "ok", "message": "Welcome to the Educational AI System API!"}`
 
 #### 문제 생성
 
@@ -225,29 +228,77 @@ docker-compose logs -f airflow-webserver
     "subject": "수학",
     "unit": "일차함수",
     "difficulty": "medium",
-    "count": 5
+    "count": 1
+  }
+  ```
+- **응답 예시** (DB Problem 테이블 형식):
+  ```json
+  [
+    {
+      "id": null,
+      "title": "일차함수의 기울기 구하기",
+      "description": "기울기 개념을 이해하는 문제",
+      "content": "y = 2x + 3에서 기울기는?",
+      "type": "MULTIPLE_CHOICE",
+      "difficulty": "MEDIUM",
+      "subject": "MATH",
+      "gradeLevel": "MIDDLE_3",
+      "unit": "일차함수",
+      "options": ["1", "2", "3", "4", "5"],
+      "correctAnswer": "2",
+      "explanation": "일차함수 y=ax+b에서 a가 기울기입니다...",
+      "hints": ["일차함수의 일반형을 기억하세요"],
+      "tags": ["수학", "일차함수", "기울기"],
+      "points": 1,
+      "timeLimit": null,
+      "isActive": true,
+      "isAIGenerated": true,
+      "aiGenerationId": "수학_일차함수_medium_1",
+      "qualityScore": null,
+      "reviewStatus": "PENDING",
+      "status": "DRAFT",
+      "modelName": "gemini-2.5-flash",
+      "tokensUsed": null,
+      "costUsd": null,
+      "createdAt": "2025-10-25T12:00:00.000Z",
+      "updatedAt": "2025-10-25T12:00:00.000Z"
+    }
+  ]
+  ```
+
+#### 학습 리포트 생성 ⭐ NEW
+
+- **POST** `/generate-report`
+- **설명**: 학생의 학습 데이터를 실시간으로 분석하여 종합 리포트를 생성합니다.
+- **요청 본문**:
+  ```json
+  {
+    "user_id": "cmgp37il10002eg3ztaonfui8"
   }
   ```
 - **응답 예시**:
   ```json
   {
-    "questions": [
-      {
-        "title": "일차함수의 기울기",
-        "content": "y = 2x + 3에서 기울기는?",
-        "options": ["1", "2", "3", "4", "5"],
-        "correct_answer": "2",
-        "explanation": "...",
-        "hints": ["..."],
-        "tags": ["일차함수", "기울기"]
-      }
-    ],
-    "metadata": {
-      "generated_count": 5,
-      "cost_usd": 0.000052
-    }
+    "user_id": "cmgp37il10002eg3ztaonfui8",
+    "report_text": "### 학습 보고서\n\n**1. 전반적인 학습 현황 분석**\n총 40개의 문제를 해결했으며...",
+    "weakest_unit": "광합성",
+    "performance_summary": {
+      "total_problems_solved": 40,
+      "overall_correct_rate": "72.50%",
+      "average_time_spent_seconds": "182.25",
+      "performance_by_subject": {...},
+      "performance_by_unit": {...},
+      "performance_by_difficulty": {...}
+    },
+    "generated_at": "2025-10-25T21:07:02.490543"
   }
   ```
+- **특징**:
+  - 실시간 리포트 생성 (12-22초 소요)
+  - 과목별/단원별/난이도별 상세 분석
+  - 강점, 약점, 개선 방안 제공
+  - 리포트당 비용: ~$0.00008 (약 0.1원)
+- **상세 문서**: [리포트 API 가이드](./docs/REPORT_API_GUIDE.md)
 
 #### 챗봇 메시지 전송 (REST)
 
@@ -371,24 +422,33 @@ pytest --cov=ai-services/src ai-services/tests/
 
 ```bash
 # 임베딩 테스트
-python tests/test_embedding.py
-python tests/test_local_embedding.py
+uv run python tests/test_embedding.py
+uv run python tests/test_local_embedding.py
 
 # 벡터 DB 및 RAG 테스트
-python tests/check_vectordb.py
-python tests/test_vector_search.py
-python tests/test_rag_local.py
-python tests/verify_rag.py
+uv run python tests/check_vectordb.py
+uv run python tests/test_vector_search.py
+uv run python tests/test_rag_local.py
+uv run python tests/verify_rag.py
 
 # 문제 생성 테스트
-python tests/test_question_gen.py
-python tests/test_question_from_db.py
+uv run python tests/test_question_gen.py
+uv run python tests/test_question_from_db.py
 
 # 백엔드 API 테스트
-python tests/test_backend_api.py
+uv run python tests/test_backend_api.py
+
+# 리포트 생성 API 테스트 ⭐ NEW
+uv run python tests/test_report_api.py
+
+# 테스트 데이터 생성 (리포트 테스트용)
+uv run python tests/create_test_data.py
+
+# DB 스키마 확인
+uv run python tests/check_db_schema.py
 
 # 전체 통합 테스트
-python tests/test_all_units.py
+uv run python tests/test_all_units.py
 ```
 
 ## 📊 모니터링 및 로깅
@@ -405,11 +465,23 @@ tail -f logs/app.log
 tail -f airflow/logs/scheduler/latest/*.log
 ```
 
-### Airflow 모니터링
+### API 성능 모니터링
 
-1. Airflow UI 접속: http://localhost:8080
-2. DAGs 페이지에서 `weekly_learning_report` 상태 확인
-3. Task Instances에서 개별 작업 로그 확인
+FastAPI는 자동으로 성능 메트릭을 제공합니다:
+
+1. **Swagger UI**: http://localhost:8000/docs
+   - 각 엔드포인트의 응답 시간 확인
+   - 요청/응답 예시 및 스키마
+
+2. **응답 시간**:
+   - 문제 생성: ~8-30초 (RAG 파이프라인 포함)
+   - 리포트 생성: ~12-22초 (LLM 분석 포함)
+   - 챗봇 메시지: ~2-5초
+
+3. **로그 확인**:
+   ```bash
+   tail -f logs/backend.log
+   ```
 
 ## 💰 비용 관리
 
@@ -427,6 +499,14 @@ tail -f airflow/logs/scheduler/latest/*.log
 |--------|-------------|-------------|--------|
 | 1M tokens | ~$250 | ~$0.40 | 99.8% |
 | 10M tokens | ~$2,500 | ~$4.00 | 99.8% |
+
+### 실제 사용 비용 (2025.10 기준)
+
+| 기능 | 평균 토큰 | 비용/요청 | 비고 |
+|------|----------|----------|------|
+| 문제 1개 생성 | ~1,380 tokens | $0.00006 (~0.08원) | RAG 컨텍스트 포함 |
+| 리포트 1개 생성 | ~2,300 tokens | $0.00008 (~0.1원) | 통계 분석 포함 |
+| 챗봇 메시지 1회 | ~500 tokens | $0.00002 (~0.03원) | 대화 히스토리 포함 |
 
 ### 비용 추적
 
@@ -562,10 +642,22 @@ ai-services/data/cache/
 
 ## 📚 추가 문서
 
-- [테스트 보고서](./docs/COMPREHENSIVE_TEST_REPORT.md) - 종합 테스트 결과
-- [이슈 해결 보고서](./docs/ISSUE_RESOLUTION_REPORT.md) - 해결된 이슈 상세
+### 주요 문서
+- **[리포트 API 가이드](./docs/REPORT_API_GUIDE.md)** ⭐ - 학습 리포트 생성 API 사용법
+- **[리포트 API 구현 보고서](./docs/REPORT_API_IMPLEMENTATION.md)** - Airflow → REST API 전환 상세
+- **[문제 생성 테스트 보고서](./docs/QUESTION_GENERATION_TEST_REPORT.md)** - 문제 생성 기능 테스트 결과
+- **[DB 스키마 매핑 가이드](./docs/DB_SCHEMA_MAPPING.md)** - PostgreSQL Problem 테이블 매핑
+
+### 마이그레이션 문서
 - [Gemini 마이그레이션](./docs/GEMINI_MIGRATION.md) - OpenAI에서 Gemini로 전환
 - [마이그레이션 요약](./docs/MIGRATION_SUMMARY.md) - 변경 사항 상세
+- [로컬 임베딩 마이그레이션](./docs/LOCAL_EMBEDDING_MIGRATION.md) - 로컬 임베딩 사용법
+
+### 테스트 문서
+- [종합 테스트 보고서](./docs/COMPREHENSIVE_TEST_REPORT.md) - 전체 시스템 테스트 결과
+- [이슈 해결 보고서](./docs/ISSUE_RESOLUTION_REPORT.md) - 해결된 이슈 상세
+
+### 기타 문서
 - [Docker 가이드](./docs/DOCKER_GUIDE.md) - Docker 사용 방법
 - [단원 자동 감지](./docs/UNIT_AUTO_DETECTION_GUIDE.md) - 단원 자동 감지 기능
 
