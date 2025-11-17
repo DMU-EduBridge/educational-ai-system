@@ -13,14 +13,15 @@
 
 ## 📋 프로젝트 개요
 
-이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하고, **REST API를 통해 학생의 학습 로그를 실시간으로 분석하여 종합 리포트를 생성**하는 AI 시스템입니다.
+이 시스템은 **교과서 텍스트를 분석**하여 **맞춤형 5지선다 문제를 자동 생성**하고, **REST API를 통해 학생의 학습 로그(Problem Progress 테이블)를 실시간으로 분석하여 리포트를 생성**하는 AI 서비스입니다.  
+FastAPI 백엔드와 Next.js 프론트엔드(별도 저장소) 연동을 염두에 둔 구조이며, CLI/문서/API가 동일한 분석 파이프라인을 공유합니다.
 
 ### ✨ 주요 기능
 
 - 📚 **교과서 텍스트 처리**: .txt, .md, .pdf 파일을 지능적으로 청킹
 - 🧠 **AI 문제 생성**: `Google Gemini 2.5 Flash`를 사용한 교육적 5지선다 문제 생성 (Langchain 통합)
 - 🔍 **벡터 검색**: Google Embeddings / 로컬 임베딩을 활용한 의미 기반 문서 검색
-- 👨‍🎓 **학습 리포트 API**: REST API를 통해 실시간으로 학생의 학습 로그를 분석하고, 강점, 약점, 개선 방안을 담은 종합 리포트를 생성
+- 👨‍🎓 **학습 리포트 API**: `problem_progress` + `problems` 테이블을 기반으로 실시간 학습 리포트를 생성
 - 🚀 **RESTful API**: FastAPI를 활용한 문제 생성 및 리포트 생성 API 제공
 - 💬 **AI 챗봇**: WebSocket 기반 실시간 학습 지원 챗봇
 - 🖥️ **CLI 도구**: 개발 및 디버깅을 위한 명령줄 인터페이스
@@ -38,6 +39,11 @@
   - Langchain을 통한 통합 구현
   - 99% 이상 비용 절감
   - 상세 내용: [docs/MIGRATION_SUMMARY.md](./docs/MIGRATION_SUMMARY.md)
+
+- ✅ **Problem Progress 기반 분석 통합** (2025.11.xx)
+  - StudentAnalyzer가 `problem_progress` 테이블을 조회해 리포트/챗봇 컨텍스트 생성
+  - Next.js EduBridge 플랫폼과 동일 데이터 모델 공유
+  - 기존 `teacher_reports` 기록과 실시간 분석을 하이브리드로 활용
 
 ## 🏗️ 시스템 아키텍처
 
@@ -85,10 +91,19 @@ educational-ai-system/
 
 1. **RAG Pipeline**: 교과서 텍스트를 벡터화하고 의미 기반 검색
 2. **Question Generator**: Gemini API를 사용한 5지선다 문제 생성
-3. **Student Analyzer**: 학습 로그 분석 및 약점 파악
-4. **Report API**: REST API를 통한 실시간 학습 리포트 생성
-5. **AI Chatbot**: WebSocket 기반 실시간 학습 지원 챗봇
-6. **FastAPI Backend**: RESTful API 서버
+3. **Student Analyzer**: `problem_progress` 테이블을 조회해 통계/리포트 생성
+4. **Report API**: REST API(`/generate-report`) 제공, Next.js/기타 서비스에서 호출
+5. **AI Chatbot**: `teacher_reports` 캐시 또는 실시간 StudentAnalyzer 결과를 활용
+6. **FastAPI Backend**: REST/WS 서버, CLI와 동일한 파이프라인 인스턴스를 사용
+
+### 데이터 플로우 요약
+
+1. **교과서 처리** → DocumentProcessor + EmbeddingsManager가 텍스트를 ChromaDB에 적재  
+2. **문제 생성** → QuestionGenerator가 RAG 결과와 Gemini를 조합해 5지선다 문제 생성  
+3. **학습 로그 축적** → EduBridge(Next.js) 앱이 학생 풀이 데이터를 `problem_progress` / `problems`에 기록  
+4. **리포트 생성** → StudentAnalyzer가 `problem_progress` ↔ `problems` 조인 결과를 pandas로 통계화 → Gemini로 서술 리포트 생성  
+5. **챗봇 응답** → 최신 `teacher_reports`를 우선 사용, 없으면 StudentAnalyzer를 통해 즉시 분석  
+6. **프론트엔드 표시** → Next.js `/api/my/reports/generate`가 `/generate-report`를 호출하고 Prisma `teacher_reports`에 저장
 
 ## 🚀 빠른 시작
 
@@ -198,6 +213,46 @@ docker-compose logs -f backend
 
 - **FastAPI 백엔드**: http://localhost:8000
 - **API 문서 (Swagger)**: http://localhost:8000/docs
+
+## ⚙️ 핵심 설정
+
+| 환경 변수 | 설명 |
+|-----------|------|
+| `GOOGLE_API_KEY` | Gemini API 호출용 키 |
+| `GEMINI_MODEL`, `GEMINI_TEMPERATURE`, `GEMINI_MAX_TOKENS` | LLM 파라미터 |
+| `DATABASE_URL` | 학습 로그/리포트 저장용 DB (Neon Postgres 권장) |
+| `SQLITE_DB_PATH` | 로컬 개발 시 SQLite 경로 (미설정 시 `data/student_logs.db`) |
+| `CHROMA_DB_PATH`, `CHROMA_COLLECTION_NAME` | RAG용 벡터 저장소 설정 |
+| `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL` | 임베딩 생성 설정 (로컬/Google) |
+
+> FastAPI는 기동 시 `.env`를 읽어 SQLAlchemy Engine을 생성합니다. 실행 중 `DATABASE_URL`을 바꾸면 반영되지 않으므로 **서버 재시작**이 필요합니다.
+
+## 📡 주요 API
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `POST` | `/generate-question` | 과목/단원/난이도에 맞는 5지선다 문제 생성 |
+| `POST` | `/generate-report` | `problem_progress` 기반 학습 리포트 생성 |
+| `POST` | `/chat/message` | REST 챗봇 대화 |
+| `WS`   | `/ws/chat/{user_id}` | WebSocket 기반 챗봇 |
+
+자세한 요청/응답 스펙은 [docs/REPORT_API_GUIDE.md](./docs/REPORT_API_GUIDE.md)와 [docs/REPORT_API_IMPLEMENTATION.md](./docs/REPORT_API_IMPLEMENTATION.md)를 참고하세요.
+
+## 🧪 테스트 & 검증
+
+- `uv run pytest tests -k report_api` – 리포트 관련 테스트만 빠르게 실행
+- `python tests/test_report_api.py` – FastAPI 서버 실행 후 실제 HTTP 호출
+- `uv run python ai-services/src/main.py analyze-student --user-id <ID>` – CLI로 StudentAnalyzer 결과 확인
+- `python tests/check_db_schema.py` – 현재 DB 스키마/데이터 요약 출력
+
+Gemini/DB에 연결되므로 `.env`에 유효한 키와 DSN이 필요합니다.
+
+## 🤝 EduBridge 프론트엔드 연동
+
+1. Next.js `.env.local`에 `NEXT_PUBLIC_FASTAPI_URL`과 동일한 `DATABASE_URL`을 설정합니다.
+2. 학생이 로그인을 하고 문제를 풀면 `problem_progress`에 기록됩니다.
+3. `/api/my/reports/generate` → FastAPI `/generate-report` → Prisma `teacher_reports` 순으로 리포트가 생성·저장됩니다.
+4. 챗봇(`src/chatbot/tutor.py`)은 `teacher_reports` 캐시가 있으면 우선 사용하고, 없으면 StudentAnalyzer를 호출해 실시간 컨텍스트를 제공합니다.
 - **PostgreSQL**: localhost:5432 (Neon 클라우드 DB 사용)
 
 ## 📚 API 엔드포인트
