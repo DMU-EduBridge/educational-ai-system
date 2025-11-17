@@ -33,14 +33,14 @@ class StudentAnalyzer:
 
         query = """
         SELECT
-            a."isCorrect" AS isCorrect,
-            a."timeSpent" AS timeSpent,
+            pp."isCorrect" AS isCorrect,
+            pp."timeSpent" AS timeSpent,
             p.subject,
             p.unit,
             p.difficulty
-        FROM attempts a
-        JOIN problems p ON a."problemId" = p.id
-        WHERE a."userId" = :user_id;
+        FROM problem_progress pp
+        JOIN problems p ON pp."problemId" = p.id
+        WHERE pp."userId" = :user_id;
         """
         
         try:
