@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime
+from sqlalchemy import text
 
 from .db import get_db_connection
 from ..utils.logger import get_logger
@@ -24,28 +25,29 @@ def save_report_to_db(user_id: str, report_data: dict):
     created_by = "api"
     now = datetime.utcnow()
 
-    query = """
+    # SQLAlchemy text() 사용 및 named parameter 방식
+    query = text("""
     INSERT INTO teacher_reports (
         id, title, content, reportType, students, analysisData, createdBy, createdAt, updatedAt, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-    """
-    params = (
-        report_id,
-        title,
-        content,
-        'PROGRESS_REPORT',
-        students_json,
-        analysis_data_json,
-        created_by,
-        now,
-        now,
-        'DRAFT'
-    )
+    ) VALUES (:id, :title, :content, :reportType, :students, :analysisData, :createdBy, :createdAt, :updatedAt, :status)
+    """)
+    
+    params = {
+        "id": report_id,
+        "title": title,
+        "content": content,
+        "reportType": 'PROGRESS_REPORT',
+        "students": students_json,
+        "analysisData": analysis_data_json,
+        "createdBy": created_by,
+        "createdAt": now,
+        "updatedAt": now,
+        "status": 'DRAFT'
+    }
 
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
+            conn.execute(query, params)
             conn.commit()
         logger.info(f"Successfully saved report {report_id} for user {user_id}.")
     except Exception as e:
