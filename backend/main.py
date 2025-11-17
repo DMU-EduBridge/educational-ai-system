@@ -225,14 +225,14 @@ async def chat_message_endpoint(request: ChatRequest) -> ChatResponse:
     
     try:
         tutor = ChatbotTutor(request.user_id, pipeline.llm_client)
-        if not tutor.weekly_report_context:
-            raise HTTPException(status_code=404, detail=f"No report found for user {request.user_id}.")
-
+        
         # 서버에 저장된 히스토리 가져오기 또는 초기화
         history = chat_histories.get(request.user_id, [])
         if not history:
-            _, initial_history = tutor.start_session()
+            initial_message, initial_history = tutor.start_session()
             history.extend(initial_history)
+            # 첫 세션 시작 메시지도 저장
+            chat_histories[request.user_id] = history
 
         history.append({"role": "user", "content": request.user_message})
         ai_response = tutor.get_response(request.user_message, history)
@@ -263,10 +263,6 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: str):
         # 세션 시작 및 첫 메시지 전송
         if not history:
             initial_message, new_history = tutor.start_session()
-            if not tutor.weekly_report_context:
-                 await websocket.send_text(initial_message) # 리포트 없다는 메시지
-                 await websocket.close()
-                 return
             history = new_history
             chat_histories[user_id] = history
             await websocket.send_text(initial_message)
